@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+aiomysql
+pymysql
+cryptography
+bcrypt
+python-jose[cryptography]
+python-multipart
+pydantic[email]
+pydantic-settings
+python-dotenv
+fastapi-mail
+aiofiles
+
+
+
+
