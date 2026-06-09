@@ -23,7 +23,7 @@ class ClientAddressCreate(BaseModel):
     zip_code: Optional[str] = None       
     country: Optional[str] = "Pakistan"
     address_type: Optional[AddressType] = AddressType.office
-    is_primary: Optional[bool] = False
+    is_primary: Optional[bool] = True
 
 
 class ClientAddressResponse(BaseModel):
