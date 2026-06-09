@@ -16,14 +16,14 @@ class AddressType(str, Enum):
 
 
 class ClientAddressCreate(BaseModel):
-    address_line_1: str = Field(..., min_length=1)
-    address_line_2: Optional[str] = None
-    city: Optional[str] = None         
-    state: Optional[str] = None          
-    zip_code: Optional[str] = None       
-    country: Optional[str] = "Pakistan"
-    address_type: Optional[AddressType] = AddressType.office
-    is_primary: Optional[bool] = True
+    address_line_1: str = Field(..., min_length=1)          
+    city: str = Field(..., min_length=1)                     
+    country: str = Field(default="Pakistan", min_length=1)  
+    address_type: Optional[AddressType] = AddressType.office 
+    is_primary: Optional[bool] = True                        
+    address_line_2: Optional[str] = None                     
+    state: Optional[str] = None                              
+    zip_code: Optional[str] = None                           
 
 
 class ClientAddressResponse(BaseModel):
