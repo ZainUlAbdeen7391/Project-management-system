@@ -214,7 +214,7 @@ async def delete_comment(cur, comment_id: int, user_id: int):
 
     await _check_comment_owner(cur, comment_id, user_id)
 
-    # ✅ soft delete the comment itself first
+    #soft delete the comment itself first
     await cur.execute(
         """
         UPDATE tbl_comments
@@ -232,6 +232,9 @@ async def delete_comment(cur, comment_id: int, user_id: int):
         """,
         (comment_id,)
     )
+    
+    
+    
 
 
     
