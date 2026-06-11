@@ -29,7 +29,6 @@ app.include_router(task_router.router)
 app.include_router(comment_router.router)
 app.include_router(attachment_router.router)
 
-
 @app.get("/")
 async def health():
     return {"status": "ok"}

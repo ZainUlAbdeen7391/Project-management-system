@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -16,22 +16,22 @@ class AddressType(str, Enum):
 
 
 class ClientAddressCreate(BaseModel):
-    address_line_1: str = Field(..., min_length=1)          
-    city: str = Field(..., min_length=1)                     
-    country: str = Field(default="Pakistan", min_length=1)  
-    address_type: Optional[AddressType] = AddressType.office 
-    is_primary: Optional[bool] = True                        
-    address_line_2: Optional[str] = None                     
-    state: Optional[str] = None                              
-    zip_code: Optional[str] = None                           
+    address_line_1: str = Field(..., min_length=1)
+    city: str = Field(..., min_length=1)
+    country: str = Field(default="Pakistan", min_length=1)
+    address_type: Optional[AddressType] = AddressType.office
+    is_primary: Optional[bool] = True
+    address_line_2: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
 
 
 class ClientAddressResponse(BaseModel):
     address_id: int
-    poc_id: int
+    client_id: int
     address_line_1: str
     address_line_2: Optional[str] = None
-    city: Optional[str] = None
+    city: str
     state: Optional[str] = None
     zip_code: Optional[str] = None
     country: str
@@ -51,6 +51,7 @@ class ClientPOCCreate(BaseModel):
 class ClientPOCResponse(BaseModel):
     poc_id: int
     client_id: int
+    address_id: int
     full_name: str
     email: str
     phone: Optional[str] = None
@@ -59,30 +60,29 @@ class ClientPOCResponse(BaseModel):
     updated_on: datetime
 
 
+class ClientAddressWithPOC(BaseModel):
+    address: ClientAddressCreate
+    poc: ClientPOCCreate
+
+
+
 class ClientCreateRequest(BaseModel):
     client_name: str = Field(..., min_length=2, max_length=50)
     client_type: ClientType = ClientType.customer
-    address: ClientAddressCreate      
-    poc: ClientPOCCreate             
+    locations: List[ClientAddressWithPOC] = Field(..., min_length=1)
+
+    @field_validator("locations")
+    @classmethod
+    def at_least_one_primary(cls, v: List[ClientAddressWithPOC]):
+        if not any(loc.address.is_primary for loc in v):
+            raise ValueError("At least one address must be marked as primary")
+        return v
 
 
 class ClientUpdateRequest(BaseModel):
     client_name: Optional[str] = Field(None, min_length=2, max_length=50)
     client_type: Optional[ClientType] = None
     status: Optional[bool] = None
-
-
-class ClientResponse(BaseModel):
-    success: bool
-    message: str
-    client_id: int
-    client_name: str
-    client_type: str
-    status: bool
-    created_by: int
-    updated_by: int
-    created_on: datetime
-    updated_on: datetime
 
 
 class ClientListItem(BaseModel):
@@ -94,13 +94,15 @@ class ClientListItem(BaseModel):
     updated_by: int
     created_on: datetime
     updated_on: datetime
+    addresses: List[ClientAddressResponse] = []
+    pocs: List[ClientPOCResponse] = []
 
 
 class ClientListResponse(BaseModel):
     success: bool
     message: str
     count: int
-    data: list[ClientListItem]
+    data: List[ClientListItem]
 
 
 class ClientDetailResponse(BaseModel):
@@ -114,8 +116,29 @@ class ClientDetailResponse(BaseModel):
     updated_by: int
     created_on: datetime
     updated_on: datetime
-    addresses: list[ClientAddressResponse] = []
-    pocs: list[ClientPOCResponse] = []
+    addresses: List[ClientAddressResponse] = []
+    pocs: List[ClientPOCResponse] = []
+    
+
+
+class ClientAddressUpdate(BaseModel):
+    address_line_1: Optional[str] = Field(None, min_length=1)
+    address_line_2: Optional[str] = None
+    city: Optional[str] = Field(default="Pakistan", min_length=1)
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    country: Optional[str] = None
+    address_type: Optional[AddressType] = None
+    is_primary: Optional[bool] = None
+    status: Optional[bool] = None
+
+
+class ClientPOCUpdate(BaseModel):
+    full_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    email: Optional[str] = Field(None, max_length=100)
+    phone: Optional[str] = Field(None, max_length=20)
+    address_id: Optional[int] = None
+    status: Optional[bool] = None
     
     
     
