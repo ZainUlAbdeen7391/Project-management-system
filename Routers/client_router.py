@@ -8,12 +8,8 @@ router = APIRouter(prefix="/client", tags=["Client"])
 
 
 #create client
-@router.post("/", response_model=Client_schemas.ClientDetailResponse, status_code=201)
-async def create_client(
-    payload: Client_schemas.ClientCreateRequest,
-    cur=Depends(get_db),
-    current_user=Depends(get_current_user),
-):
+@router.post("/", response_model=Client_schemas.ClientDetailResponse,status_code=201)
+async def create_client(payload: Client_schemas.ClientCreateRequest,cur=Depends(get_db),current_user=Depends(get_current_user),):
     try:
         data = await client_repository.create_client(cur, payload, current_user["user_id"])
         return Client_schemas.ClientDetailResponse(
@@ -38,21 +34,17 @@ async def create_client(
 async def get_clients(cur=Depends(get_db),current_user=Depends(require_permission("clients", "client", "read")),):
     try:
         data = await client_repository.list_clients(cur)
-
         return {
             "success": True,
             "message": "Clients retrieved successfully",
             "count": len(data),
             "data": data,
         }
-
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Server error: {str(e)}"
         )
-
-
 #get client detail by single id
 @router.get("/{client_id}", response_model=Client_schemas.ClientDetailResponse)
 async def get_client(client_id: int,cur=Depends(get_db),current_user=Depends(require_permission("clients", "client", "read")),):
@@ -72,12 +64,7 @@ async def get_client(client_id: int,cur=Depends(get_db),current_user=Depends(req
 
 #update client information including full_anme, type and status
 @router.put("/{client_id}", response_model=Client_schemas.ClientDetailResponse)
-async def update_client(
-    client_id: int,
-    payload: Client_schemas.ClientUpdateRequest,
-    cur=Depends(get_db),
-    current_user=Depends(get_current_user),
-):
+async def update_client(client_id: int,payload: Client_schemas.ClientUpdateRequest,cur=Depends(get_db),current_user=Depends(get_current_user),):
     try:
         data = await client_repository.update_client(cur, client_id, payload, current_user["user_id"])
         return Client_schemas.ClientDetailResponse(
@@ -97,9 +84,7 @@ async def update_client(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
     
-    
 #update client address
-
 @router.put("/{client_id}/addressess/{address_id}", response_model=Client_schemas.ClientDetailResponse)
 async def update_address(client_id:int, address_id:int, payload: Client_schemas.ClientAddressUpdate, 
                          cur=Depends(get_db),current_user=Depends(get_current_user),):
@@ -121,7 +106,6 @@ async def update_address(client_id:int, address_id:int, payload: Client_schemas.
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
     
 #uopdate poc detail endpoint
-
 @router.put("/{client_id}/pocs/{poc_id}", response_model=Client_schemas.ClientDetailResponse)
 async def update_poc(client_id:int, poc_id:int, payload: Client_schemas.ClientPOCUpdate, cur=Depends(get_db),
                      current_user=Depends(get_current_user),):
@@ -135,10 +119,8 @@ async def update_poc(client_id:int, poc_id:int, payload: Client_schemas.ClientPO
             addresses=data["addresses"],
             pocs = data["pocs"],
         )
-        
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -146,11 +128,7 @@ async def update_poc(client_id:int, poc_id:int, payload: Client_schemas.ClientPO
 
 #delete client softly
 @router.delete("/{client_id}")
-async def delete_client(
-    client_id: int,
-    cur=Depends(get_db),
-    current_user=Depends(get_current_user),
-):
+async def delete_client(client_id: int,cur=Depends(get_db),current_user=Depends(get_current_user),):
     try:
         result = await client_repository.delete_client(cur, client_id, current_user["user_id"])
         return {
