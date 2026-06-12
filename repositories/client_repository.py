@@ -448,51 +448,105 @@ async def update_poc(cur, client_id: int, poc_id: int, payload, user_id: int):
 
 #delete client
 
-async def delete_client(cur, client_id: int, user_id: int):
-    await cur.execute(
-        """
-        SELECT client_id, deleted_on FROM tbl_client
-        WHERE client_id = %s
-        """,
-        (client_id,),
-    )
-    row = await cur.fetchone()
-    if not row:
-        raise ValueError("Client not found")
+async def delete_client_entity(
+    cur,
+    entity_type: str,
+    entity_id: int,
+    user_id: int,
+):
     
-    if row["deleted_on"] is not None:
-        raise ValueError("Client already deleted")
+    #delete client 
+    if entity_type == "client":
 
-    await cur.execute(
-        """
-        UPDATE tbl_client_address
-        SET deleted_on = NOW(), updated_on = NOW()
-        WHERE client_id = %s AND deleted_on IS NULL
-        """,
-        (client_id,),
-    )
+        await cur.execute(
+            """
+            SELECT client_id
+            FROM tbl_client
+            WHERE client_id = %s
+            AND deleted_on IS NULL
+            """,
+            (entity_id,),
+        )
 
-    await cur.execute(
-        """
-        UPDATE tbl_client_poc
-        SET deleted_on = NOW(), updated_on = NOW()
-        WHERE client_id = %s AND deleted_on IS NULL
-        """,
-        (client_id,),
-    )
+        if not await cur.fetchone():
+            raise ValueError("Client not found")
 
-    await cur.execute(
-        """
-        UPDATE tbl_client
-        SET deleted_on = NOW(), updated_on = NOW(), updated_by = %s
-        WHERE client_id = %s AND deleted_on IS NULL
-        """,
-        (user_id, client_id),
-    )
-    return {"client_id": client_id}
+        await cur.execute(
+            """
+            UPDATE tbl_client
+            SET
+                deleted_on = NOW(),
+                updated_on = NOW(),
+                updated_by = %s
+            WHERE client_id = %s
+            """,
+            (user_id, entity_id),
+        )
 
+        return {
+            "message": "Client deleted successfully"
+        }
+        
+        #delete address 
+        
+    elif entity_type == "address":
 
+        await cur.execute(
+            """
+            SELECT address_id
+            FROM tbl_client_address
+            WHERE address_id = %s
+            AND deleted_on IS NULL
+            """,
+            (entity_id,),
+        )
 
+        if not await cur.fetchone():
+            raise ValueError("Address not found")
 
+        await cur.execute(
+            """
+            UPDATE tbl_client_address
+            SET
+                deleted_on = NOW(),
+                updated_on = NOW()
+            WHERE address_id = %s
+            """,
+            (entity_id,),
+        )
 
+        return {
+            "message": "Address deleted successfully"
+        }
+
+#delete poc
+    elif entity_type == "poc":
+
+        await cur.execute(
+            """
+            SELECT poc_id
+            FROM tbl_client_poc
+            WHERE poc_id = %s
+            AND deleted_on IS NULL
+            """,
+            (entity_id,),
+        )
+
+        if not await cur.fetchone():
+            raise ValueError("POC not found")
+
+        await cur.execute(
+            """
+            UPDATE tbl_client_poc
+            SET
+                deleted_on = NOW(),
+                updated_on = NOW()
+            WHERE poc_id = %s
+            """,
+            (entity_id,),
+        )
+
+        return {
+            "message": "POC deleted successfully"
+        }
 

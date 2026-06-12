@@ -140,6 +140,15 @@ class ClientPOCUpdate(BaseModel):
     address_id: Optional[int] = None
     status: Optional[bool] = None
     
+class ClientEntityType(str, Enum):
+    client = "client"
+    address = "address"
+    poc = "poc"
+
+
+class ClientDeleteRequest(BaseModel):
+    entity_type: ClientEntityType
+    entity_id: int
     
 
     

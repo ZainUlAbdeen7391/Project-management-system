@@ -127,22 +127,21 @@ async def update_poc(client_id:int, poc_id:int, payload: Client_schemas.ClientPO
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 #delete client softly
-@router.delete("/{client_id}")
-async def delete_client(client_id: int,cur=Depends(get_db),current_user=Depends(get_current_user),):
+@router.delete("/")
+async def delete_client_entity(payload: Client_schemas.ClientDeleteRequest,cur=Depends(get_db),
+                               current_user=Depends(require_permission("clients", "client", "delete")),):
     try:
-        result = await client_repository.delete_client(cur, client_id, current_user["user_id"])
+        result = await client_repository.delete_client_entity(
+            cur=cur,
+            entity_type=payload.entity_type.value,
+            entity_id=payload.entity_id,
+            user_id=current_user["user_id"],
+        )
+
         return {
             "success": True,
-            "message": "Client deleted successfully",
-            "client_id": result["client_id"],
+            "message": result["message"]
         }
+
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
-    
-    
-    
-    
+        raise HTTPException(400, detail=str(e))
