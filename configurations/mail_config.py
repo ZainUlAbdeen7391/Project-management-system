@@ -1,6 +1,6 @@
 from fastapi_mail import ConnectionConfig
 
-MAIL_ENABLED = False  # toggle here
+MAIL_ENABLED = False  
 
 mail_conf = ConnectionConfig(
     MAIL_USERNAME="your-email@gmail.com",

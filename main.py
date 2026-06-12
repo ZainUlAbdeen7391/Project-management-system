@@ -16,7 +16,6 @@ from fastapi.staticfiles import StaticFiles
 async def lifespan(app: FastAPI):
     await Database.init()
     yield
-
 app = FastAPI(title="Project Management System", lifespan=lifespan)
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
