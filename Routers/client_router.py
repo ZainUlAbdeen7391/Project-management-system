@@ -7,7 +7,7 @@ from repositories import client_repository
 router = APIRouter(prefix="/client", tags=["Client"])
 
 
-#create client
+#cerate client
 @router.post("/", response_model=Client_schemas.ClientDetailResponse,status_code=201)
 async def create_client(payload: Client_schemas.ClientCreateRequest,cur=Depends(get_db),current_user=Depends(get_current_user),):
     try:
@@ -126,7 +126,7 @@ async def update_poc(client_id:int, poc_id:int, payload: Client_schemas.ClientPO
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
-#delete client softly
+#delete client softly with different entity type#client, addresses and poc
 @router.delete("/")
 async def delete_client_entity(payload: Client_schemas.ClientDeleteRequest,cur=Depends(get_db),
                                current_user=Depends(require_permission("clients", "client", "delete")),):
@@ -137,11 +137,12 @@ async def delete_client_entity(payload: Client_schemas.ClientDeleteRequest,cur=D
             entity_id=payload.entity_id,
             user_id=current_user["user_id"],
         )
-
         return {
             "success": True,
             "message": result["message"]
         }
-
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
+    
+
+    

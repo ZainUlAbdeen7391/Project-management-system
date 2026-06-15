@@ -47,7 +47,6 @@ class ClientPOCCreate(BaseModel):
     email: str = Field(..., max_length=100)
     phone: str = Field(..., max_length=20)
 
-
 class ClientPOCResponse(BaseModel):
     poc_id: int
     client_id: int
@@ -59,12 +58,9 @@ class ClientPOCResponse(BaseModel):
     created_on: datetime
     updated_on: datetime
 
-
 class ClientAddressWithPOC(BaseModel):
     address: ClientAddressCreate
     poc: ClientPOCCreate
-
-
 
 class ClientCreateRequest(BaseModel):
     client_name: str = Field(..., min_length=2, max_length=50)
