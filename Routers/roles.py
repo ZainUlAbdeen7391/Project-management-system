@@ -2,189 +2,135 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pymysql.err import IntegrityError
 from utilities.dependencies import require_permission, log_activity
 from configurations.database import get_db
-from schemas.rbac_schema import RoleCreate, RoleOut, RoleUpdate, ApiResponse
+from schemas.rbac_schema import RoleCreate, RoleUpdate, ApiResponse
+from repositories import role_repository as repo
 
 router = APIRouter(prefix='/roles', tags=['Roles'])
-@router.post("",response_model=ApiResponse,status_code=status.HTTP_201_CREATED)
-async def create_role(payload: RoleCreate,cur=Depends(get_db),current_user: dict = Depends(require_permission("roles", "role", "create"))):
+
+
+# ── Create Role ────────────────────────────────────────────────────────────
+
+@router.post("", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+async def create_role(
+    payload: RoleCreate,
+    cur=Depends(get_db),
+    current_user: dict = Depends(require_permission("roles", "role", "create")),
+):
+    payload.role_slug = payload.role_slug.lower().strip()
+
     try:
-        payload.role_slug = payload.role_slug.lower().strip()
-        await cur.execute("""
-            INSERT INTO tbl_roles (
-                role_name,
-                role_slug,
-                description,
-                created_by,
-                updated_by,
-                created_on,
-                updated_on
-            )
-            VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
-        """, (
-            payload.role_name,
-            payload.role_slug,
-            payload.description,
-            current_user["user_id"],
-            current_user["user_id"]
-        ))
-
-        role_id = cur.lastrowid
-
-        await cur.execute("""
-            SELECT *
-            FROM tbl_roles
-            WHERE role_id = %s
-        """, (role_id,))
-
-        role = await cur.fetchone()
-
-        await log_activity(
-            cur,
-            current_user["user_id"],
-            "create",
-            "role",
-            role_id,
-            description=f"Created role '{payload.role_name}'",
-            new_values=payload.model_dump()
-        )
-
-        return {
-            "success": True,
-            "message": "Role created successfully",
-            "data": role
-        }
-
+        role_id = await repo.create_role(cur, payload, current_user["user_id"])
     except IntegrityError:
-        raise HTTPException(
-            status_code=400,
-            detail="Role slug already exists."
-        )
-      
-# Getting all roles 
-  
-@router.get("", response_model=ApiResponse)
-async def list_roles(cur=Depends(get_db), current_user: dict=Depends(require_permission("roles", "role", "read"))):
+        raise HTTPException(status_code=400, detail="Role slug already exists.")
 
-    await cur.execute("""
-        SELECT role_id, role_name, role_slug,
-               description, status,
-               created_by, updated_by,
-               created_on, updated_on, deleted_on
-        FROM tbl_roles
-        WHERE deleted_on IS NULL
-        ORDER BY role_id
-    """)
+    role = await repo.get_role_by_id_any_status(cur, role_id)
 
-    roles = await cur.fetchall()
+    await log_activity(
+        cur,
+        current_user["user_id"],
+        "create",
+        "role",
+        role_id,
+        description=f"Created role '{payload.role_name}'",
+        new_values=payload.model_dump(),
+    )
 
     return {
         "success": True,
-        "message": "Roles fetched successfully",
-        "data": roles
+        "message": "Role created successfully",
+        "data": role,
     }
 
-#Get Single Role
+
+# ── List All Roles ────────────────────────────────────────────────────────
+
+@router.get("", response_model=ApiResponse)
+async def list_roles(
+    cur=Depends(get_db),
+    current_user: dict = Depends(require_permission("roles", "role", "read")),
+):
+    roles = await repo.list_active_roles(cur)
+    return {
+        "success": True,
+        "message": "Roles fetched successfully",
+        "data": roles,
+    }
+
+
+# ── Get Single Role ──────────────────────────────────────────────────────
 
 @router.get("/{role_id}", response_model=ApiResponse)
-async def get_role(role_id: int, cur = Depends(get_db),  current_user: dict=Depends(require_permission("roles", "role", "read"))):
-    await cur.execute("""
-                      SELECT role_id,role_name, role_slug, description,status,created_by,updated_by, created_on, updated_on, deleted_on
-                      FROM tbl_roles
-                      WHERE role_id = %s AND deleted_on IS NULL
-                      """, (role_id,))
-    role = await cur.fetchone()
+async def get_role(
+    role_id: int,
+    cur=Depends(get_db),
+    current_user: dict = Depends(require_permission("roles", "role", "read")),
+):
+    role = await repo.get_active_role_by_id(cur, role_id)
     if not role:
         raise HTTPException(status_code=404, detail="Role not Found")
+
     return {
-            "success": True,
-            "message": "Role has successfully fetched",
-            "data": role
-            }
-    
-#Update Role against an ID
+        "success": True,
+        "message": "Role has successfully fetched",
+        "data": role,
+    }
+
+
+# ── Update Role ──────────────────────────────────────────────────────────
 
 @router.put("/{role_id}", response_model=ApiResponse)
-async def update_role(role_id: int, payload: RoleUpdate, cur = Depends(get_db), current_user:dict = Depends(require_permission("roles", "role", "update"))):
-    await cur.execute("""
-                      SELECT role_id,role_name, role_slug, description,status,created_by,updated_by, created_on, updated_on, deleted_on
-                      FROM tbl_roles
-                      WHERE role_id = %s 
-                      AND deleted_on IS NULL
-                      """, (role_id,))
-    old_role = await cur.fetchone()
+async def update_role(
+    role_id: int,
+    payload: RoleUpdate,
+    cur=Depends(get_db),
+    current_user: dict = Depends(require_permission("roles", "role", "update")),
+):
+    old_role = await repo.get_active_role_by_id(cur, role_id)
     if not old_role:
         raise HTTPException(status_code=404, detail="Role not found")
-    fields = []
-    values = []
 
-    if payload.role_name is not None:
-        fields.append("role_name = %s")
-        values.append(payload.role_name)
+    try:
+        has_changes = await repo.update_role(cur, role_id, payload, current_user["user_id"])
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Role slug already exists.")
 
-    if payload.role_slug is not None:
-        fields.append("role_slug = %s")
-        values.append(payload.role_slug)
-
-    if payload.description is not None:
-        fields.append("description = %s")
-        values.append(payload.description)
-
-    if not fields:
+    if not has_changes:
         return {
             "success": True,
             "message": "No changes detected",
-            "data": old_role
-            }
+            "data": old_role,
+        }
 
-    fields.append("updated_by = %s")
-    fields.append("updated_on = NOW()")
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Role not found and there is no changes occurred")
 
-    values.extend([current_user["user_id"], role_id])
+    updated_role = await repo.get_role_by_id_any_status(cur, role_id)
 
-    query = f"""
-        UPDATE tbl_roles
-        SET {', '.join(fields)}
-        WHERE role_id = %s
-        AND deleted_on IS NULL
-    """
-    try:
-        await cur.execute(query, tuple(values))
-        if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Role not found and there is no changes occurred")
-        await cur.execute("SELECT * FROM tbl_roles WHERE role_id = %s", (role_id,))
-        updated_role = await cur.fetchone()
-        await log_activity(
-            cur, current_user["user_id"], "update", "role", role_id,
-            description=f"Updated role '{updated_role['role_name']}'",
-            old_values={k: old_role[k] for k in ["role_name", "role_slug", "description"]},
-            new_values=payload.model_dump(exclude_unset=True),
-        )
-        return {
-                "success": True,
-                "message": "Role updated successfully",
-                "data": updated_role
-                }
-    except IntegrityError:
-        raise HTTPException(status_code=400, detail="Role slug already exists.")
-    
-#delete Route 
+    await log_activity(
+        cur, current_user["user_id"], "update", "role", role_id,
+        description=f"Updated role '{updated_role['role_name']}'",
+        old_values={k: old_role[k] for k in ["role_name", "role_slug", "description"]},
+        new_values=payload.model_dump(exclude_unset=True),
+    )
+
+    return {
+        "success": True,
+        "message": "Role updated successfully",
+        "data": updated_role,
+    }
+
+
+# ── Delete Role (soft) ──────────────────────────────────────────────────────
+
 @router.delete("/{role_id}", response_model=ApiResponse)
 async def delete_role(
     role_id: int,
     cur=Depends(get_db),
-    current_user: dict = Depends(require_permission("roles", "role", "delete"))
+    current_user: dict = Depends(require_permission("roles", "role", "delete")),
 ):
-    await cur.execute("""
-        UPDATE tbl_roles
-        SET status = 0,
-            deleted_on = NOW(),
-            updated_by = %s,
-            updated_on = NOW()
-        WHERE role_id = %s
-        AND deleted_on IS NULL
-    """, (current_user["user_id"], role_id))
-    if cur.rowcount == 0:
-        raise HTTPException(status_code=404,detail="Role not found.")
+    affected = await repo.soft_delete_role(cur, role_id, current_user["user_id"])
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="Role not found.")
 
     await log_activity(
         cur,
@@ -192,20 +138,11 @@ async def delete_role(
         "soft_delete",
         "role",
         role_id,
-        description=f"Soft-deleted role id {role_id}"
+        description=f"Soft-deleted role id {role_id}",
     )
 
     return {
         "success": True,
         "message": "Role deleted successfully",
-        "data": None
+        "data": None,
     }
-    
-
-    
-    
-    
-    
-    
-
-

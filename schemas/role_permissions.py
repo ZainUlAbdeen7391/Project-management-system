@@ -13,9 +13,11 @@ class PermissionBase(BaseModel):
     description: Optional[str] = Field(None, max_length=255)
     status: int = Field(default=1)
 
+
 class PermissionCreate(PermissionBase):
     pass
- 
+
+
 class PermissionUpdate(BaseModel):
     module_id: Optional[int] = None
     role_id: Optional[int] = None
@@ -25,6 +27,7 @@ class PermissionUpdate(BaseModel):
     action: Optional[str] = Field(None, max_length=50)
     description: Optional[str] = Field(None, max_length=255)
     status: Optional[int] = None
+
 
 class PermissionOut(PermissionBase):
     permission_id: int
@@ -37,10 +40,13 @@ class PermissionOut(PermissionBase):
     role_slug: Optional[str] = None
 
 
+# ── Login response building blocks ───────────────────────────────────────────
+
 class UserRoleSummary(BaseModel):
     role_id: int
     role_name: str
     role_slug: str
+
 
 class UserPermissionSummary(BaseModel):
     module_slug: str
@@ -49,6 +55,7 @@ class UserPermissionSummary(BaseModel):
     permission_slug: str
     permission_name: str
 
+
 class LoginSuccessResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -56,10 +63,3 @@ class LoginSuccessResponse(BaseModel):
     full_name: str
     roles: List[UserRoleSummary]
     permissions: List[UserPermissionSummary]
-    
-
-
-
- 
-    
-    

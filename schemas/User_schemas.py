@@ -43,15 +43,18 @@ class ResetPasswordRequest(BaseModel):
     @classmethod
     def validate_password(cls, v: str) -> str:
         return _check_password_bytes(v)
-    
+
+
 class RefreshRequest(BaseModel):
-    refresh_token: str 
-    
+    refresh_token: str
+
+
 class RoleOut(BaseModel):
     role_id: int
     role_name: str
     role_slug: str
     description: str | None = None
+
 
 class PermissionOut(BaseModel):
     permission_id: int
@@ -62,6 +65,7 @@ class PermissionOut(BaseModel):
     resource: str
     action: str
     description: str | None = None
+
 
 class TokenResponse(BaseModel):
     success: bool
@@ -75,7 +79,7 @@ class TokenResponse(BaseModel):
     email: str
     roles: list[RoleOut] = []
     permissions: list[PermissionOut] = []
-    
+
 
 class UserResponse(BaseModel):
     user_id: int

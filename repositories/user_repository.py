@@ -272,10 +272,3 @@ async def get_user_permissions(cur, user_id: int):
         (user_id,)
     )
     return await cur.fetchall()
-
-
-
-
-
-    
-    
