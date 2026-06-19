@@ -8,13 +8,9 @@ from utilities import security
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
-
 async def get_current_user(token: str = Depends(oauth2_scheme),cur: aiomysql.DictCursor = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+    credentials_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Could not validate credentials",
+                            headers={"WWW-Authenticate": "Bearer"},
     )
 
     try:
@@ -113,7 +109,7 @@ async def log_activity(
         json.dumps(new_values) if new_values else None
     ))
     
-    
+
     
     
 

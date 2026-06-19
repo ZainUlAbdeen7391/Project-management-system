@@ -10,8 +10,7 @@ _SELECT_WITH_JOINS = """
 """
 
 
-# ── Create ───────────────────────────────────────────────────────────────────
-
+#create
 async def create_permission(cur, payload) -> int:
     """Inserts a new permission row and returns its permission_id."""
     await cur.execute(
@@ -36,8 +35,7 @@ async def create_permission(cur, payload) -> int:
     return (await cur.fetchone())["id"]
 
 
-# ── Read ─────────────────────────────────────────────────────────────────────
-
+#Listing
 async def get_permission_by_id(cur, permission_id: int):
     """Fetches a single permission (with module/role names) by id, including soft-deleted ones."""
     await cur.execute(
@@ -86,8 +84,7 @@ async def list_permissions(cur, role_id: int | None, module_id: int | None):
     return await cur.fetchall()
 
 
-# ── Update ───────────────────────────────────────────────────────────────────
-
+#update function
 async def update_permission(cur, permission_id: int, payload) -> bool:
     """
     Applies a partial update to a permission row.
@@ -128,9 +125,7 @@ async def update_permission(cur, permission_id: int, payload) -> bool:
     await cur.execute(sql, tuple(values))
     return True
 
-
-# ── Delete (soft) ────────────────────────────────────────────────────────────
-
+#delete
 async def soft_delete_permission(cur, permission_id: int) -> int:
     """Soft-deletes an active permission row. Returns affected row count."""
     await cur.execute(

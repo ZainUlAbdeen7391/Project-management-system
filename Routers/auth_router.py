@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, UTC
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_mail import FastMail, MessageSchema
+
 import schemas.User_schemas as User_schemas
 from configurations.database import get_db
 from configurations.mail_config import MAIL_ENABLED, mail_conf
@@ -12,7 +14,6 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 #Signup
-
 @router.post("/signup", response_model=User_schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 async def signup(payload: User_schemas.SignupRequest, cur=Depends(get_db)):
     try:
@@ -20,14 +21,15 @@ async def signup(payload: User_schemas.SignupRequest, cur=Depends(get_db)):
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    user = await user_repository.get_user_by_id(cur, user_id)
+    user  = await user_repository.get_user_by_id(cur, user_id)
+    phone = await user_repository.get_phone_by_user_id(cur, user_id)
+
     return User_schemas.UserResponse(
-        success=True,
-        message="User has successfully created",
         user_id=user["user_id"],
         full_name=user["full_name"],
         email=security.decrypt_field(user["email"]),
         username=security.decrypt_field(user["username"]),
+        phone_number=security.decrypt_field(phone["phone_number"]),
         status=user["status"],
     )
 
@@ -42,10 +44,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), cur=Depends(ge
         if not user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
-        roles = await user_repository.get_user_roles(cur, user["user_id"])
+        roles       = await user_repository.get_user_roles(cur, user["user_id"])
         permissions = await user_repository.get_user_permissions(cur, user["user_id"])
-
-        access_token = security.create_access_token(data={"sub": str(user["user_id"])})
+        access_token  = security.create_access_token(data={"sub": str(user["user_id"])})
         refresh_token = await user_repository.create_refresh_token(cur, user["user_id"])
 
         return {
@@ -67,13 +68,13 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), cur=Depends(ge
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
 
 
-#forgot Password
-
+#Forgot Password
 @router.post("/forgot-password")
 async def forgot_password(payload: User_schemas.ForgotPasswordRequest, cur=Depends(get_db)):
     try:
         user = await user_repository.get_user_by_email_hmac(cur, payload.email)
         if not user:
+            # Return same message whether user exists or not (security best practice)
             return {"message": "A link has been sent to your email, please check and copy the token"}
 
         raw_token, token_hash = security.generate_reset_token()
@@ -113,7 +114,8 @@ async def forgot_password(payload: User_schemas.ForgotPasswordRequest, cur=Depen
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error")
 
-#Reset password
+
+#Reset Password
 
 @router.post("/reset-password")
 async def reset_password(payload: User_schemas.ResetPasswordRequest, cur=Depends(get_db)):

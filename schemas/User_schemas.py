@@ -13,12 +13,21 @@ class SignupRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
     password: str = Field(..., min_length=8)
+    phone_number: str = Field(..., min_length=7, max_length=20) 
     role_id: int | None = None
 
     @field_validator("password", mode="before")
     @classmethod
     def validate_password(cls, v: str) -> str:
         return _check_password_bytes(v)
+
+    @field_validator("phone_number", mode="before")
+    @classmethod
+    def strip_phone(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("phone_number cannot be empty")
+        return v
 
 
 class LoginRequest(BaseModel):
@@ -86,4 +95,5 @@ class UserResponse(BaseModel):
     full_name: str
     email: str
     username: str
+    phone_number: str        
     status: str

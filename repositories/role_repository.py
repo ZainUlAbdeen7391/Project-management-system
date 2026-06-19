@@ -1,11 +1,4 @@
-"""
-All raw SQL for tbl_roles lives here.
-The router contains no SQL — only HTTP orchestration.
-"""
-
-
-# ── Create ───────────────────────────────────────────────────────────────────
-
+#create
 async def create_role(cur, payload, created_by: int) -> int:
     """Inserts a new role row and returns its role_id."""
     await cur.execute(
@@ -32,8 +25,7 @@ async def create_role(cur, payload, created_by: int) -> int:
     return cur.lastrowid
 
 
-# ── Read ─────────────────────────────────────────────────────────────────────
-
+#listing
 async def get_role_by_id_any_status(cur, role_id: int):
     """Fetches a role by id regardless of deleted/active state (used right after insert)."""
     await cur.execute(
@@ -73,8 +65,7 @@ async def list_active_roles(cur):
     return await cur.fetchall()
 
 
-# ── Update ───────────────────────────────────────────────────────────────────
-
+#udoate role
 async def update_role(cur, role_id: int, payload, updated_by: int) -> bool:
     """
     Applies a partial update to a role row.
@@ -111,8 +102,7 @@ async def update_role(cur, role_id: int, payload, updated_by: int) -> bool:
     return True
 
 
-# ── Delete (soft) ────────────────────────────────────────────────────────────
-
+#delete role
 async def soft_delete_role(cur, role_id: int, updated_by: int) -> int:
     """Soft-deletes a role. Returns affected row count."""
     await cur.execute(

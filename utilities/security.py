@@ -42,27 +42,6 @@ def _get_iv(plaintext: str) -> bytes:
     hm = hmac.new(HMAC_KEY, plaintext.lower().encode(), hashlib.sha256).digest()
     return hm[:12]
 
-
-def encrypt_field(plaintext: str) -> bytes:
-    aesgcm = AESGCM(ENC_KEY)
-    iv = _get_iv(plaintext)
-    ct = aesgcm.encrypt(iv, plaintext.encode(), None)
-    return base64.b64encode(iv + ct)
-
-
-def decrypt_field(ciphertext: bytes) -> str:
-    data = base64.b64decode(ciphertext)
-    iv, ct = data[:12], data[12:]
-    aesgcm = AESGCM(ENC_KEY)
-    return aesgcm.decrypt(iv, ct, None).decode()
-
-
-def compute_hmac(plaintext: str) -> str:
-    return hmac.new(HMAC_KEY, plaintext.lower().encode(), hashlib.sha256).hexdigest()
-
-
-
-
 def generate_reset_token() -> tuple[str, str]:
     raw = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw.encode()).hexdigest()
@@ -76,7 +55,6 @@ def create_access_token(data: dict,expires_delta: timedelta | None = None) -> st
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode,JWT_SECRET,algorithm=JWT_ALGORITHM)
-
     return encoded_jwt
 
 def decode_access_token(token: str) -> dict | None:
@@ -85,9 +63,7 @@ def decode_access_token(token: str) -> dict | None:
     except JWTError:
         return None
     
-    
-    
-    
+
 def generate_refresh_token() -> tuple[str, str]:
     raw = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw.encode()).hexdigest()
@@ -95,4 +71,22 @@ def generate_refresh_token() -> tuple[str, str]:
 
 def hash_refresh_token(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def encrypt_field(plaintext: str) -> bytes:
+    aesgcm = AESGCM(ENC_KEY)
+    iv = _get_iv(plaintext)
+    ct = aesgcm.encrypt(iv, plaintext.encode(), None)
+    return base64.b64encode(iv + ct)
+
+def decrypt_field(ciphertext: bytes) -> str:
+    data = base64.b64decode(ciphertext)
+    iv, ct = data[:12], data[12:]
+    aesgcm = AESGCM(ENC_KEY)
+    return aesgcm.decrypt(iv, ct, None).decode()
+
+def compute_hmac(plaintext: str) -> str:
+    return hmac.new(HMAC_KEY, plaintext.lower().encode(), hashlib.sha256).hexdigest()
+
     
+
