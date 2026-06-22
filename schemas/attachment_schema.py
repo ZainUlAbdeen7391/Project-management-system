@@ -11,24 +11,24 @@ class EntityType(str, Enum):
 class AttachmentResponse(BaseModel):
     success: bool
     message: str
-    attachment_id: int 
+    attachment_id: str
     entity_type:str 
-    entity_id: int 
+    entity_id: str
     file_name: str
     file_size: Optional[int] = None
     file_type: str
-    uploaded_by: int
+    uploaded_by: str
     created_on: Optional[datetime] = None
     
 class AttachmentListItem(BaseModel):
-    attachment_id: int
+    attachment_id: str
     entity_type: str
-    entity_id: int
+    entity_id: str
     file_name: str
     file_size: Optional[int] = None
     file_type: str
     file_path: str
-    uploaded_by: int
+    uploaded_by: str
     uploaded_by_name: Optional[str] = None
     created_on: Optional[datetime] = None
     

@@ -15,7 +15,7 @@ class Database:
             port=int(os.getenv("DB_PORT", "3306")),
             user=os.getenv("DB_USER", "root"),
             password=os.getenv("DB_PASSWORD", ""),
-            db=os.getenv("DB_NAME", "project_management-systemdb"),
+            db=os.getenv("DB_NAME", "project_management_systemdb"),
             autocommit=False,
             minsize=1,
             maxsize=10

@@ -27,8 +27,8 @@ class ClientAddressCreate(BaseModel):
 
 
 class ClientAddressResponse(BaseModel):
-    address_id: int
-    client_id: int
+    address_id: str
+    client_id: str
     address_line_1: str
     address_line_2: Optional[str] = None
     city: str
@@ -48,9 +48,9 @@ class ClientPOCCreate(BaseModel):
     phone: str = Field(..., max_length=20)
 
 class ClientPOCResponse(BaseModel):
-    poc_id: int
-    client_id: int
-    address_id: int
+    poc_id: str
+    client_id: str
+    address_id: str
     full_name: str
     email: str
     phone: Optional[str] = None
@@ -82,7 +82,7 @@ class ClientUpdateRequest(BaseModel):
 
 
 class ClientListItem(BaseModel):
-    client_id: int
+    client_id: str
     client_name: str
     client_type: str
     status: bool
@@ -104,12 +104,12 @@ class ClientListResponse(BaseModel):
 class ClientDetailResponse(BaseModel):
     success: bool
     message: str
-    client_id: int
+    client_id: str
     client_name: str
     client_type: str
     status: bool
-    created_by: int
-    updated_by: int
+    created_by: str
+    updated_by: str
     created_on: datetime
     updated_on: datetime
     addresses: List[ClientAddressResponse] = []
@@ -144,7 +144,7 @@ class ClientEntityType(str, Enum):
 
 class ClientDeleteRequest(BaseModel):
     entity_type: ClientEntityType
-    entity_id: int
+    entity_id: str
     
 
     

@@ -4,8 +4,8 @@ from datetime import datetime
 
 
 class PermissionBase(BaseModel):
-    module_id: int
-    role_id: int
+    module_id: str
+    role_id: str
     permission_name: str = Field(..., max_length=100)
     permission_slug: str = Field(..., max_length=100)
     resource: str = Field(..., max_length=50)
@@ -19,8 +19,8 @@ class PermissionCreate(PermissionBase):
 
 
 class PermissionUpdate(BaseModel):
-    module_id: Optional[int] = None
-    role_id: Optional[int] = None
+    module_id: Optional[str] = None
+    role_id: Optional[str] = None
     permission_name: Optional[str] = Field(None, max_length=100)
     permission_slug: Optional[str] = Field(None, max_length=100)
     resource: Optional[str] = Field(None, max_length=50)
@@ -30,7 +30,7 @@ class PermissionUpdate(BaseModel):
 
 
 class PermissionOut(PermissionBase):
-    permission_id: int
+    permission_id: str
     created_on: datetime
     updated_on: datetime
     deleted_on: Optional[datetime] = None
@@ -40,10 +40,8 @@ class PermissionOut(PermissionBase):
     role_slug: Optional[str] = None
 
 
-# ── Login response building blocks ───────────────────────────────────────────
-
 class UserRoleSummary(BaseModel):
-    role_id: int
+    role_id: str
     role_name: str
     role_slug: str
 
@@ -59,7 +57,7 @@ class UserPermissionSummary(BaseModel):
 class LoginSuccessResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    user_id: int
+    user_id: str
     full_name: str
     roles: List[UserRoleSummary]
     permissions: List[UserPermissionSummary]

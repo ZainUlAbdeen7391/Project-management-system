@@ -14,7 +14,7 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
     phone_number: str = Field(..., min_length=7, max_length=20) 
-    role_id: int | None = None
+    role_id: str | None = None
 
     @field_validator("password", mode="before")
     @classmethod
@@ -59,15 +59,15 @@ class RefreshRequest(BaseModel):
 
 
 class RoleOut(BaseModel):
-    role_id: int
+    role_id: str
     role_name: str
     role_slug: str
     description: str | None = None
 
 
 class PermissionOut(BaseModel):
-    permission_id: int
-    module_id: int
+    permission_id: str
+    module_id: str
     module_name: str
     permission_name: str
     permission_slug: str
@@ -83,7 +83,7 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
-    user_id: int
+    user_id: str
     full_name: str
     email: str
     roles: list[RoleOut] = []
@@ -91,9 +91,15 @@ class TokenResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
-    user_id: int
+    user_id: str
     full_name: str
     email: str
     username: str
     phone_number: str        
     status: str
+
+
+
+
+
+

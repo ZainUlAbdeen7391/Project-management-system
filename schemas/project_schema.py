@@ -20,7 +20,7 @@ class ProjectCreateRequest(BaseModel):
     project_name: str = Field(..., min_length=1, max_length=150)
     description: Optional[str] = None
     project_type: ProjectType = ProjectType.external
-    client_id: Optional[int] = None
+    client_id: Optional[str] = None
     estimated_cost: Optional[Decimal] = Field(default=None,ge=Decimal("0.00"),decimal_places=2,max_digits=10,)
     due_date: Optional[date] = None
   
@@ -44,34 +44,34 @@ class ProjectCreateRequest(BaseModel):
 class ProjectResponse(BaseModel):
     success: bool
     message: str
-    project_id: int
+    project_id: str
     project_name: str
     description: Optional[str] = None
     project_type: str
-    client_id: Optional[int] = None
+    client_id: Optional[str] = None
     estimated_cost: Optional[Decimal] = None
     due_date: Optional[date] = None
     start_date: Optional[datetime] = None
     end_date: Optional[date] = None
     status: str
-    created_by: Optional[int] = None
+    created_by: Optional[str] = None
     created_on: Optional[datetime] = None
     updated_on: Optional[datetime] = None
 
 
 class ProjectListItem(BaseModel):
-    project_id: int
+    project_id: str
     project_name: str
     description: Optional[str] = None
     project_type: str
-    client_id: Optional[int] = None
+    client_id: Optional[str] = None
     client_name: Optional[str] = None
     estimated_cost: Optional[Decimal] = None
     due_date: Optional[date] = None
     start_date: Optional[datetime] = None
     end_date: Optional[date] = None
     status: str
-    created_by: Optional[int] = None
+    created_by: Optional[str] = None
     created_by_name: Optional[str] = None
     created_on: Optional[datetime] = None
     updated_on: Optional[datetime] = None
@@ -88,7 +88,7 @@ class ProjectUpdateRequest(BaseModel):
     project_name: Optional[str] = Field(None, min_length=1, max_length=150)
     description: Optional[str] = None
     project_type: Optional[ProjectType] = None
-    client_id: Optional[int] = None
+    client_id: Optional[str] = None
     estimated_cost: Optional[Decimal] = Field(None, ge=Decimal("0.00"), decimal_places=2, max_digits=10)
     due_date: Optional[date] = None
     end_date: Optional[date] = None
@@ -110,8 +110,8 @@ class ProjectUpdateRequest(BaseModel):
 
 
 class ProjectMemberCreateRequest(BaseModel):
-    members: List[int] = Field(..., min_length=1)
-    project_managers: List[int] = Field(..., min_length=1)
+    members: List[str] = Field(..., min_length=1)
+    project_managers: List[str] = Field(..., min_length=1)
 
     @field_validator("members", "project_managers")
     @classmethod
@@ -124,10 +124,10 @@ class ProjectMemberCreateRequest(BaseModel):
 class ProjectMemberResponse(BaseModel):
     success: bool
     message: str
-    project_id: int
+    project_id: str
     assigned_count: int
-    members: List[int]
-    project_managers: List[int]
+    members: List[str]
+    project_managers: List[str]
     
     
     

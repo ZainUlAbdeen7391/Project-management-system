@@ -3,7 +3,6 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
-# ── Role ───────────────────────────────────────────────────────────────────
 
 class RoleBase(BaseModel):
     role_name: str = Field(..., max_length=50)
@@ -22,38 +21,36 @@ class RoleUpdate(BaseModel):
 
 
 class RoleOut(BaseModel):
-    role_id: int
+    role_id: str
     role_name: str
     role_slug: str
     description: Optional[str]
     status: int
-    created_by: int
-    updated_by: int
+    created_by: str
+    updated_by: str
     created_on: datetime
     updated_on: datetime
     deleted_on: Optional[datetime] = None
 
 
-# ── Module ─────────────────────────────────────────────────────────────────
 
 class ModuleOut(BaseModel):
-    module_id: int
+    module_id: str
     module_name: str
     module_slug: str
     description: Optional[str]
     status: int
-    created_by: int
-    updated_by: int
+    created_by: str
+    updated_by: str
     created_on: datetime
     updated_on: datetime
     deleted_on: Optional[datetime] = None
 
 
-# ── User Role Assignment ──────────────────────────────────────────────────
 
 class UserRoleCreate(BaseModel):
-    user_id: int
-    role_id: int
+    user_id: str
+    role_id: str
     status: str = Field(default="active")
 
 
@@ -62,9 +59,9 @@ class UserRoleUpdate(BaseModel):
 
 
 class UserRoleOut(BaseModel):
-    ur_id: int
-    user_id: int
-    role_id: int
+    ur_id: str
+    user_id: str
+    role_id: str
     status: int
     created_on: datetime
     updated_on: datetime
@@ -73,10 +70,9 @@ class UserRoleOut(BaseModel):
     role_slug: Optional[str] = None
 
 
-# ── Permission Matrix ──────────────────────────────────────────────────────
 
 class PermissionMatrixItem(BaseModel):
-    permission_id: int
+    permission_id: str
     permission_name: str
     resource: str
     action: str
@@ -85,9 +81,6 @@ class PermissionMatrixItem(BaseModel):
 
 class PermissionMatrixOut(RootModel[Dict[str, Dict[str, List[PermissionMatrixItem]]]]):
     pass
-
-
-# ── Generic API Response Wrapper ─────────────────────────────────────────────
 
 class ApiResponse(BaseModel):
     success: bool

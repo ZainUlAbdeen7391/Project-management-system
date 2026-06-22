@@ -4,9 +4,9 @@ from typing import Optional, List
 
 
 class CommentCreateRequest(BaseModel):
-    task_id: int
+    task_id: str
     comment: str = Field(..., min_length=1)
-    parent_id: Optional[int] = None
+    parent_id: Optional[str] = None
 
     @field_validator("parent_id", mode="before")
     @classmethod
@@ -24,13 +24,13 @@ class CommentUpdateRequest(BaseModel):
     comment: str = Field(..., min_length=1)
     
 class CommentAuthor(BaseModel):
-    user_id: int
+    user_id: str
     full_name: Optional[str] = None
     
 class CommentItem(BaseModel):
-    comment_id: int
-    task_id: int 
-    parent_id: Optional[int] = None
+    comment_id: str
+    task_id: str
+    parent_id: Optional[str] = None
     comment: str
     author: CommentAuthor
     replies: List["CommentItem"] = []
@@ -45,9 +45,9 @@ CommentItem.model_rebuild()
 class CommentResponse(BaseModel):
     success: bool
     message: str
-    comment_id: int
-    task_id: int
-    parent_id: Optional[int] = None
+    comment_id: str
+    task_id: str
+    parent_id: Optional[str] = None
     comment: str
     author: CommentAuthor
     created_on: Optional[datetime] = None
