@@ -10,7 +10,7 @@ router = APIRouter(prefix="/comments", tags=["Comments"])
 def _build_comment_response(row: dict) -> Comment_schemas.CommentResponse:
     return Comment_schemas.CommentResponse(
         success=True,
-        message="",                        # set by each endpoint
+        message="",                       
         comment_id=row["comment_id"],
         task_id=row["task_id"],
         parent_id=row["parent_id"],
@@ -39,8 +39,6 @@ def _build_comment_item(row: dict) -> Comment_schemas.CommentItem:
         updated_on=row["updated_on"],
     )
 
-
-# ── create comment or reply ───────────────────────────────────────────────────
 
 @router.post("/", response_model=Comment_schemas.CommentResponse, status_code=201)
 async def create_comment(
@@ -78,13 +76,10 @@ async def create_comment(
         import traceback
         traceback.print_exc()
         raise HTTPException(500, detail=f"Server error: {str(e)}")
-
-
-# ── list comments for a task ──────────────────────────────────────────────────
-
+#list task
 @router.get("/task/{task_id}")
 async def list_comments(
-    task_id: int,
+    task_id: str,
     cur=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
@@ -111,15 +106,11 @@ async def list_comments(
         raise HTTPException(500, detail=f"Server error: {str(e)}")
 
 
-# ── update comment ────────────────────────────────────────────────────────────
+#update comment
 
 @router.put("/{comment_id}", response_model=Comment_schemas.CommentResponse)
-async def update_comment(
-    comment_id: int,
-    payload: Comment_schemas.CommentUpdateRequest,
-    cur=Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+async def update_comment(comment_id: str,payload: Comment_schemas.CommentUpdateRequest,cur=Depends(get_db),
+                         current_user=Depends(get_current_user)):
     try:
         row = await comment_repository.update_comment(
             cur,
@@ -151,14 +142,9 @@ async def update_comment(
         raise HTTPException(500, detail=f"Server error: {str(e)}")
 
 
-# ── delete comment ────────────────────────────────────────────────────────────
-
+#delete comment
 @router.delete("/{comment_id}")
-async def delete_comment(
-    comment_id: int,
-    cur=Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+async def delete_comment(comment_id: str,cur=Depends(get_db),current_user=Depends(get_current_user)):
     try:
         await comment_repository.delete_comment(
             cur,

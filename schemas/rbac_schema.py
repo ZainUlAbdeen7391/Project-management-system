@@ -2,13 +2,10 @@ from pydantic import BaseModel, Field, RootModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-
-
 class RoleBase(BaseModel):
     role_name: str = Field(..., max_length=50)
     role_slug: str = Field(..., max_length=50)
     description: Optional[str] = Field(None, max_length=255)
-
 
 class RoleCreate(RoleBase):
     pass
@@ -30,7 +27,6 @@ class RoleOut(BaseModel):
     updated_by: str
     created_on: datetime
     updated_on: datetime
-    deleted_on: Optional[datetime] = None
 
 
 
@@ -44,7 +40,6 @@ class ModuleOut(BaseModel):
     updated_by: str
     created_on: datetime
     updated_on: datetime
-    deleted_on: Optional[datetime] = None
 
 
 
@@ -65,7 +60,6 @@ class UserRoleOut(BaseModel):
     status: int
     created_on: datetime
     updated_on: datetime
-    deleted_on: Optional[datetime] = None
     role_name: Optional[str] = None
     role_slug: Optional[str] = None
 

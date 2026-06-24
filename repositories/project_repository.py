@@ -1,49 +1,43 @@
 import schemas.project_schema as Project_schemas
 from datetime import datetime, UTC
 from typing import List
+from utilities.uuid_utils import generate_uuid7
 
-async def create_project(cur, payload: Project_schemas.ProjectCreateRequest, created_by: int):
+async def create_project(cur, payload: Project_schemas.ProjectCreateRequest, created_by: str):
     if payload.client_id is not None:
         await cur.execute(
             """
-            SELECT client_id
-            FROM tbl_client
-            WHERE client_id = %s
-              AND deleted_on IS NULL
-            LIMIT 1
+            SELECT client_id FROM tbl_client
+            WHERE client_id = %s AND deleted_on IS NULL LIMIT 1
             """,
             (payload.client_id,),
         )
         if not await cur.fetchone():
             raise ValueError("Client does not exist")
 
+    project_id = generate_uuid7()
+
     cost = float(payload.estimated_cost) if payload.estimated_cost is not None else None
 
     await cur.execute(
         """
         INSERT INTO tbl_projects
-            (project_name, description, project_type, client_id,
+            (project_id, project_name, description, project_type, client_id,
              estimated_cost, due_date, start_date, status, created_by)
-        VALUES (%s, %s, %s, %s, %s, %s, UTC_TIMESTAMP(), 'active', %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, UTC_TIMESTAMP(), 'active', %s)
         """,
         (
-            payload.project_name,
-            payload.description,
-            payload.project_type.value,
-            payload.client_id,
-            cost,
-            payload.due_date,
-            created_by,
+            project_id,                 
+            payload.project_name,       
+            payload.description,        
+            payload.project_type.value, 
+            payload.client_id,          
+            cost,                       
+            payload.due_date,           
+            created_by,                 
         ),
     )
 
-    project_id = getattr(cur, "lastrowid", None)
-    if not project_id:
-        await cur.execute("SELECT LAST_INSERT_ID() AS id")
-        result = await cur.fetchone()
-        project_id = result["id"] if result else None
-    if not project_id:
-        raise RuntimeError("Failed to retrieve project_id after insert")
 
     await cur.execute(
         """
@@ -56,9 +50,6 @@ async def create_project(cur, payload: Project_schemas.ProjectCreateRequest, cre
         (project_id,),
     )
     return await cur.fetchone()
-
-
-# ── List Projects ───────────────────────────────────────────────────────────
 
 async def list_projects(cur, status: str = None, project_type: str = None):
     query = """
@@ -99,7 +90,7 @@ async def list_projects(cur, status: str = None, project_type: str = None):
 
 #Update Project function
 
-async def update_project(cur, project_id: int, payload: Project_schemas.ProjectUpdateRequest):
+async def update_project(cur, project_id: str, payload: Project_schemas.ProjectUpdateRequest):
     await cur.execute(
         """
         SELECT project_id, status, start_date, end_date
@@ -146,12 +137,14 @@ async def update_project(cur, project_id: int, payload: Project_schemas.ProjectU
     if payload.due_date is not None:
         fields.append("due_date = %s")
         values.append(payload.due_date)
+    if payload.end_date is not None:
+        fields.append("end_date = %s")
+        values.append(payload.end_date)
     if payload.status is not None:
         new_status = payload.status.value
-
         if new_status == "active" and project["start_date"] is None:
             fields.append("start_date = UTC_TIMESTAMP()")
-        if new_status == "completed" and project["end_date"] is None:
+        if new_status == "completed" and project["end_date"] is None and payload.end_date is None:
             fields.append("end_date = UTC_TIMESTAMP()")
         fields.append("status = %s")
         values.append(new_status)
@@ -182,7 +175,7 @@ async def update_project(cur, project_id: int, payload: Project_schemas.ProjectU
 
 #Delete Project 
 
-async def delete_project(cur, project_id: int):
+async def delete_project(cur, project_id: str):
     await cur.execute(
         """
         SELECT project_id
@@ -208,14 +201,9 @@ async def delete_project(cur, project_id: int):
 
 from typing import List
 
-async def assign_project_members(
-    cur,
-    project_id: int,
-    member_ids: List[int],
-    manager_ids: List[int],
-) -> int:
+async def assign_project_members(cur,project_id: str,member_ids: List[str],manager_ids: List[str],) -> int:
 
-    # Check project exists
+    #check project exists
     await cur.execute(
         """
         SELECT project_id
@@ -229,10 +217,10 @@ async def assign_project_members(
     if not await cur.fetchone():
         raise ValueError("Project not found")
 
-    # Managers must also be members
+    #Managers must also be members
     all_member_ids = list(set(member_ids + manager_ids))
 
-    # Validate users
+    #Validate users
     for user_id in all_member_ids:
         await cur.execute(
             """
@@ -247,8 +235,6 @@ async def assign_project_members(
             raise ValueError(f"User {user_id} not found")
 
     inserted = 0
-
-    # Optional: Clear old assignments and replace them
     await cur.execute(
         """
         DELETE FROM tbl_project_members
@@ -256,38 +242,18 @@ async def assign_project_members(
         """,
         (project_id,)
     )
-
-    # Insert all members
     for user_id in all_member_ids:
-
+        member_id = generate_uuid7()
         is_manager = 1 if user_id in manager_ids else 0
-
         await cur.execute(
             """
             INSERT INTO tbl_project_members
-            (
-                project_id,
-                user_id,
-                is_project_manager,
-                created_on
-            )
-            VALUES
-            (
-                %s,
-                %s,
-                %s,
-                NOW()
-            )
+            (member_id, project_id, user_id, is_project_manager, created_on)
+            VALUES (%s, %s, %s, %s, NOW())
             """,
-            (
-                project_id,
-                user_id,
-                is_manager,
-            )
+            (member_id, project_id, user_id, is_manager),
         )
-
         inserted += 1
-
-    await cur.connection.commit()
-
+        
     return inserted
+

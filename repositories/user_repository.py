@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import schemas.User_schemas as User_schemas
 import utilities.security as security
-
-
+from utilities.uuid_utils import generate_uuid7
 
 async def get_user_by_email_hmac(cur, email: str):
     hmac_val = security.compute_hmac(email)
@@ -11,7 +10,6 @@ async def get_user_by_email_hmac(cur, email: str):
         (hmac_val,),
     )
     return await cur.fetchone()
-
 
 async def get_user_by_username_hmac(cur, username: str):
     hmac_val = security.compute_hmac(username)
@@ -26,8 +24,7 @@ async def get_user_by_username_hmac(cur, username: str):
     )
     return await cur.fetchone()
 
-
-async def get_user_by_id(cur, user_id: int):
+async def get_user_by_id(cur, user_id: str):
     await cur.execute(
         """
         SELECT * FROM tbl_users
@@ -40,8 +37,7 @@ async def get_user_by_id(cur, user_id: int):
     return await cur.fetchone()
 
 
-async def get_phone_by_user_id(cur, user_id: int):
-    """Returns the primary active phone row for the given user."""
+async def get_phone_by_user_id(cur, user_id: str):
     await cur.execute(
         """
         SELECT id, user_id, phone_number, phone_number_hmac, phone_type, is_primary, status
@@ -56,8 +52,7 @@ async def get_phone_by_user_id(cur, user_id: int):
     return await cur.fetchone()
 
 
-
-async def create_user(cur, payload: User_schemas.SignupRequest) -> int:
+async def create_user(cur, payload: User_schemas.SignupRequest) -> str:
     existing_email    = await get_user_by_email_hmac(cur, payload.email)
     existing_username = await get_user_by_username_hmac(cur, payload.username)
 
@@ -79,18 +74,21 @@ async def create_user(cur, payload: User_schemas.SignupRequest) -> int:
     if await cur.fetchone():
         raise ValueError("Phone number already exists")
 
-    enc_email      = security.encrypt_field(payload.email)
-    enc_username   = security.encrypt_field(payload.username)
-    email_hmac     = security.compute_hmac(payload.email)
-    username_hmac  = security.compute_hmac(payload.username)
+    user_id = generate_uuid7()
+
+    enc_email     = security.encrypt_field(payload.email)
+    enc_username  = security.encrypt_field(payload.username)
+    email_hmac    = security.compute_hmac(payload.email)
+    username_hmac = security.compute_hmac(payload.username)
 
     await cur.execute(
         """
         INSERT INTO tbl_users
-            (full_name, username, username_hmac, email, email_hmac, status)
-        VALUES (%s, %s, %s, %s, %s, %s)
+            (user_id, full_name, username, username_hmac, email, email_hmac, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
         (
+            user_id,
             payload.full_name,
             enc_username,
             username_hmac,
@@ -99,27 +97,27 @@ async def create_user(cur, payload: User_schemas.SignupRequest) -> int:
             "Active",
         ),
     )
-    user_id = cur.lastrowid
 
-    hashed_pw = security.hash_password(payload.password)
+    password_id = generate_uuid7()
+    hashed_pw   = security.hash_password(payload.password)
     await cur.execute(
         """
-        INSERT INTO tbl_passwords (user_id, password, status, created_on)
-        VALUES (%s, %s, 1, UTC_TIMESTAMP())
+        INSERT INTO tbl_passwords (id, user_id, password, status, created_on)
+        VALUES (%s, %s, %s, 1, UTC_TIMESTAMP())
         """,
-        (user_id, hashed_pw),
+        (password_id, user_id, hashed_pw),
     )
-
+    phone_id  = generate_uuid7()
     enc_phone = security.encrypt_field(payload.phone_number)
     await cur.execute(
         """
         INSERT INTO tbl_phones
-            (user_id, phone_number, phone_number_hmac,
+            (id, user_id, phone_number, phone_number_hmac,
              phone_type, is_primary, status,
              created_by, updated_by)
-        VALUES (%s, %s, %s, 'Personal', 1, 1, %s, %s)
+        VALUES (%s, %s, %s, %s, 'Personal', 1, 1, %s, %s)
         """,
-        (user_id, enc_phone, phone_hmac, user_id, user_id),
+        (phone_id, user_id, enc_phone, phone_hmac, user_id, user_id),
     )
 
     role_id = payload.role_id if payload.role_id else 5
@@ -133,18 +131,16 @@ async def create_user(cur, payload: User_schemas.SignupRequest) -> int:
     )
     valid_role = await cur.fetchone()
     if valid_role:
+        ur_id = generate_uuid7()
         await cur.execute(
             """
             INSERT INTO tbl_user_role
-                (role_id, user_id, status, created_on, updated_on)
-            VALUES (%s, %s, 'active', UTC_TIMESTAMP(), UTC_TIMESTAMP())
+                (ur_id, role_id, user_id, status, created_on, updated_on)
+            VALUES (%s, %s, %s, 'active', UTC_TIMESTAMP(), UTC_TIMESTAMP())
             """,
-            (role_id, user_id),
+            (ur_id, role_id, user_id),
         )
-
     return user_id
-
-
 
 async def authenticate_user(cur, email: str, password: str):
     user = await get_user_by_email_hmac(cur, email)
@@ -167,30 +163,25 @@ async def authenticate_user(cur, email: str, password: str):
     pw_record = await cur.fetchone()
     if not pw_record:
         return None
-
     if not security.verify_password(password, pw_record["password"]):
         return None
     return user
 
-
-
-async def update_last_login(cur, user_id: int):
+async def update_last_login(cur, user_id: str):
     await cur.execute(
         "UPDATE tbl_users SET last_login_at = UTC_TIMESTAMP() WHERE user_id = %s",
         (user_id,),
     )
 
-
-
-async def create_password_reset(cur, user_id: int, token_hash: str, expires_at: datetime):
+async def create_password_reset(cur, user_id: str, token_hash: str, expires_at: datetime):
+    rp_id = generate_uuid7()
     await cur.execute(
         """
-        INSERT INTO tbl_reset_password (user_id, reset_token_hash, expires_at)
-        VALUES (%s, %s, %s)
+        INSERT INTO tbl_reset_password (rp_id, user_id, reset_token_hash, expires_at)
+        VALUES (%s, %s, %s, %s)
         """,
-        (user_id, token_hash, expires_at),
+        (rp_id, user_id, token_hash, expires_at),
     )
-
 
 async def validate_reset_token(cur, raw_token: str):
     token_hash = security.hash_reset_token(raw_token)
@@ -206,7 +197,7 @@ async def validate_reset_token(cur, raw_token: str):
     return await cur.fetchone()
 
 
-async def reset_user_password(cur, rp_id: int, user_id: int, new_password: str):
+async def reset_user_password(cur, rp_id: str, user_id: str, new_password: str):
     hashed = security.hash_password(new_password)
     await cur.execute(
         "UPDATE tbl_passwords SET password = %s, updated_on = NOW() WHERE user_id = %s",
@@ -217,9 +208,7 @@ async def reset_user_password(cur, rp_id: int, user_id: int, new_password: str):
         (rp_id,),
     )
 
-
-
-async def create_refresh_token(cur, user_id: int) -> str:
+async def create_refresh_token(cur, user_id: str) -> str:
     await cur.execute(
         """
         UPDATE tbl_refresh_tokens
@@ -230,15 +219,16 @@ async def create_refresh_token(cur, user_id: int) -> str:
     )
     raw_token, token_hash = security.generate_refresh_token()
     expire = datetime.now(timezone.utc) + timedelta(days=security.REFRESH_EXPIRE_DAYS)
+
+    rt_id = generate_uuid7()
     await cur.execute(
         """
-        INSERT INTO tbl_refresh_tokens (user_id, token_hash, expires_at, created_at)
-        VALUES (%s, %s, %s, UTC_TIMESTAMP())
+        INSERT INTO tbl_refresh_tokens (rt_id, user_id, token_hash, expires_at, created_at)
+        VALUES (%s, %s, %s, %s, UTC_TIMESTAMP())
         """,
-        (user_id, token_hash, expire),
+        (rt_id, user_id, token_hash, expire),
     )
     return raw_token
-
 
 async def validate_refresh_token(cur, raw_token: str):
     token_hash = security.hash_refresh_token(raw_token)
@@ -255,13 +245,13 @@ async def validate_refresh_token(cur, raw_token: str):
     return await cur.fetchone()
 
 
-async def revoke_refresh_token(cur, token_id: int):
+async def revoke_refresh_token(cur, token_id: str):
     await cur.execute(
         "UPDATE tbl_refresh_tokens SET revoked_at = UTC_TIMESTAMP() WHERE rt_id = %s",
         (token_id,),
     )
 
-async def get_user_roles(cur, user_id: int):
+async def get_user_roles(cur, user_id: str):
     await cur.execute(
         """
         SELECT
@@ -281,8 +271,7 @@ async def get_user_roles(cur, user_id: int):
     )
     return await cur.fetchall()
 
-
-async def get_user_permissions(cur, user_id: int):
+async def get_user_permissions(cur, user_id: str):
     await cur.execute(
         """
         SELECT

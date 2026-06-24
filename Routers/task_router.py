@@ -8,7 +8,6 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
 def _build_task_response(row: dict, assignees: list[dict]) -> dict:
-    """Convert raw DB rows into a dict TaskResponse can consume."""
     return {
         **row,
         "assignees": [
@@ -23,10 +22,7 @@ def _build_task_response(row: dict, assignees: list[dict]) -> dict:
 
 
 @router.post("/", response_model=Task_schemas.TaskResponse, status_code=201)
-async def create_task(
-    payload: Task_schemas.TaskCreateRequest,
-    cur=Depends(get_db),
-    current_user=Depends(require_permission("tasks", "task", "create"))
+async def create_task(payload: Task_schemas.TaskCreateRequest,cur=Depends(get_db),current_user=Depends(require_permission("tasks", "task", "create"))
 ):
     try:
         row, assignees = await task_repository.create_task(cur, payload, current_user["user_id"])
@@ -58,14 +54,9 @@ async def create_task(
 from typing import List
 
 @router.get("/")
-async def list_tasks(
-    project_id: int | None = Query(None),
-    status: Task_schemas.TaskStatus | None = Query(None),
-    priority: Task_schemas.TaskPriority | None = Query(None),
-    assignee_user_ids: List[int] | None = Query(None),
-    cur=Depends(get_db),
-    current_user=Depends(require_permission("tasks", "task", "read"))
-):
+async def list_tasks(project_id: str | None = Query(None),status: Task_schemas.TaskStatus | None = Query(None),
+                    priority: Task_schemas.TaskPriority | None = Query(None),assignee_user_ids: List[str] | None = Query(None),
+                    cur=Depends(get_db),current_user=Depends(require_permission("tasks", "task", "read"))):
     tasks = await task_repository.list_tasks(
         cur,
         project_id=project_id,
@@ -88,16 +79,16 @@ async def list_tasks(
             for row, assignees in tasks
         ],
     }
-
 @router.put("/{task_id}", response_model=Task_schemas.TaskResponse)
-async def update_task(
-    task_id: int,
-    payload: Task_schemas.TaskUpdateRequest,
-    cur=Depends(get_db),
-    current_user=Depends(require_permission("tasks", "task", "update"))
-):
+async def update_task(task_id: str,payload: Task_schemas.TaskUpdateRequest,cur=Depends(get_db),
+                      current_user=Depends(require_permission("tasks", "task", "update"))):
     try:
-        row, assignees = await task_repository.update_task(cur, task_id, payload)
+        row, assignees = await task_repository.update_task(
+            cur, 
+            task_id, 
+            payload, 
+            current_user["user_id"]
+        )
         await log_activity(
             cur=cur,
             user_id=current_user["user_id"],
@@ -122,13 +113,9 @@ async def update_task(
         traceback.print_exc()
         raise HTTPException(500, detail=f"Server error: {str(e)}")
 
-
+    
 @router.delete("/{task_id}")
-async def delete_task(
-    task_id: int,
-    cur=Depends(get_db),
-    current_user=Depends(require_permission("tasks", "task", "delete"))
-):
+async def delete_task(task_id: str,cur=Depends(get_db),current_user=Depends(require_permission("tasks", "task", "delete"))):
     try:
         await task_repository.delete_task(cur, task_id)
         await log_activity(

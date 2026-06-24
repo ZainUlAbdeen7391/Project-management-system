@@ -8,14 +8,10 @@ from repositories import role_repository as repo
 router = APIRouter(prefix='/roles', tags=['Roles'])
 
 
-# ── Create Role ────────────────────────────────────────────────────────────
+#    Create Role
 
 @router.post("", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
-async def create_role(
-    payload: RoleCreate,
-    cur=Depends(get_db),
-    current_user: dict = Depends(require_permission("roles", "role", "create")),
-):
+async def create_role(payload: RoleCreate,cur=Depends(get_db),current_user: dict = Depends(require_permission("roles", "role", "create")),):
     payload.role_slug = payload.role_slug.lower().strip()
 
     try:
@@ -42,12 +38,10 @@ async def create_role(
     }
 
 
-# ── List All Roles ────────────────────────────────────────────────────────
+#listing all roles
 
 @router.get("", response_model=ApiResponse)
-async def list_roles(
-    cur=Depends(get_db),
-    current_user: dict = Depends(require_permission("roles", "role", "read")),
+async def list_roles(cur=Depends(get_db),current_user: dict = Depends(require_permission("roles", "role", "read")),
 ):
     roles = await repo.list_active_roles(cur)
     return {
@@ -57,14 +51,10 @@ async def list_roles(
     }
 
 
-# ── Get Single Role ──────────────────────────────────────────────────────
+# list single role
 
 @router.get("/{role_id}", response_model=ApiResponse)
-async def get_role(
-    role_id: int,
-    cur=Depends(get_db),
-    current_user: dict = Depends(require_permission("roles", "role", "read")),
-):
+async def get_role(role_id: str,cur=Depends(get_db),current_user: dict = Depends(require_permission("roles", "role", "read")),):
     role = await repo.get_active_role_by_id(cur, role_id)
     if not role:
         raise HTTPException(status_code=404, detail="Role not Found")
@@ -76,15 +66,9 @@ async def get_role(
     }
 
 
-# ── Update Role ──────────────────────────────────────────────────────────
-
+#Update Role
 @router.put("/{role_id}", response_model=ApiResponse)
-async def update_role(
-    role_id: int,
-    payload: RoleUpdate,
-    cur=Depends(get_db),
-    current_user: dict = Depends(require_permission("roles", "role", "update")),
-):
+async def update_role(role_id: str,payload: RoleUpdate,cur=Depends(get_db),current_user: dict = Depends(require_permission("roles", "role", "update")),):
     old_role = await repo.get_active_role_by_id(cur, role_id)
     if not old_role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -120,14 +104,9 @@ async def update_role(
     }
 
 
-# ── Delete Role (soft) ──────────────────────────────────────────────────────
-
+# softly roles delete
 @router.delete("/{role_id}", response_model=ApiResponse)
-async def delete_role(
-    role_id: int,
-    cur=Depends(get_db),
-    current_user: dict = Depends(require_permission("roles", "role", "delete")),
-):
+async def delete_role(role_id: str,cur=Depends(get_db),current_user: dict = Depends(require_permission("roles", "role", "delete")),):
     affected = await repo.soft_delete_role(cur, role_id, current_user["user_id"])
     if affected == 0:
         raise HTTPException(status_code=404, detail="Role not found.")

@@ -1,8 +1,7 @@
 import schemas.task_schema as Task_schemas
+from utilities.uuid_utils import generate_uuid7
 
-
-
-async def _fetch_task_assignees(cur, task_id: int) -> list[dict]:
+async def _fetch_task_assignees(cur, task_id: str) -> list[dict]:
     await cur.execute(
         """
         SELECT ta.id, ta.user_id, u.full_name
@@ -10,12 +9,10 @@ async def _fetch_task_assignees(cur, task_id: int) -> list[dict]:
         LEFT JOIN tbl_users u ON ta.user_id = u.user_id
         WHERE ta.task_id = %s AND ta.deleted_on IS NULL
         """,
-        (task_id,)
-    )
+        (task_id,))
     return await cur.fetchall()
 
-
-async def _verify_user(cur, user_id: int, label: str = "User"):
+async def _verify_user(cur, user_id: str, label: str = "User"):
     await cur.execute(
         "SELECT user_id FROM tbl_users WHERE user_id = %s",
         (user_id,)
@@ -23,9 +20,7 @@ async def _verify_user(cur, user_id: int, label: str = "User"):
     if not await cur.fetchone():
         raise ValueError(f"{label} with id {user_id} not found")
 
-
-
-async def create_task(cur, payload: Task_schemas.TaskCreateRequest, created_by: int):
+async def create_task(cur, payload: Task_schemas.TaskCreateRequest, created_by: str):
     await cur.execute(
         "SELECT project_id FROM tbl_projects WHERE project_id = %s AND deleted_on IS NULL",
         (payload.project_id,)
@@ -46,14 +41,16 @@ async def create_task(cur, payload: Task_schemas.TaskCreateRequest, created_by: 
         if not await cur.fetchone():
             raise ValueError("Parent task does not exist")
 
+    task_id = generate_uuid7()
     await cur.execute(
         """
         INSERT INTO tbl_tasks
-            (project_id, title, description, status, priority,
+            (task_id, project_id, title, description, status, priority,
              is_responsible, assignees, due_date, parent_id, created_by)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
+            task_id,                    
             payload.project_id,
             payload.title,
             payload.description,
@@ -66,15 +63,6 @@ async def create_task(cur, payload: Task_schemas.TaskCreateRequest, created_by: 
             created_by,
         )
     )
-
-    task_id = getattr(cur, "lastrowid", None)
-    if not task_id:
-        await cur.execute("SELECT LAST_INSERT_ID() as id")
-        result = await cur.fetchone()
-        task_id = result["id"] if result else None
-
-    if not task_id:
-        raise RuntimeError("Failed to retrieve task_id after insert")
 
     for uid in payload.assignees:
         await cur.execute(
@@ -104,14 +92,8 @@ async def create_task(cur, payload: Task_schemas.TaskCreateRequest, created_by: 
     return row, assignees
 
 
-
-async def list_tasks(
-    cur,
-    project_id: int = None,
-    status: str = None,
-    priority: str = None,
-    assignee_user_ids: list[int] = None,
-):
+async def list_tasks(cur,project_id:str= None,status: str = None,priority:str = None,
+                     assignee_user_ids: list[str] = None,):
     query = """
         SELECT
             t.task_id,
@@ -137,21 +119,16 @@ async def list_tasks(
         LEFT JOIN tbl_users cb    ON t.created_by     = cb.user_id
         WHERE t.deleted_on IS NULL
     """
-
     params = []
-
     if project_id is not None:
         query += " AND t.project_id = %s"
         params.append(project_id)
-
     if status:
         query += " AND t.status = %s"
         params.append(status)
-
     if priority:
         query += " AND t.priority = %s"
         params.append(priority)
-
     if assignee_user_ids:
         placeholders = ", ".join(["%s"] * len(assignee_user_ids))
         query += f"""
@@ -176,8 +153,8 @@ async def list_tasks(
 
 
 
-async def update_task(cur, task_id: int, payload: Task_schemas.TaskUpdateRequest):
-    # Verify task exists
+async def update_task(cur, task_id: str, payload: Task_schemas.TaskUpdateRequest, user_id: str):
+    #Verify task exists
     await cur.execute(
         "SELECT task_id FROM tbl_tasks WHERE task_id = %s AND deleted_on IS NULL",
         (task_id,)
@@ -202,7 +179,6 @@ async def update_task(cur, task_id: int, payload: Task_schemas.TaskUpdateRequest
 
     fields = []
     values = []
-
     if payload.title is not None:
         fields.append("title = %s")
         values.append(payload.title)
@@ -214,8 +190,11 @@ async def update_task(cur, task_id: int, payload: Task_schemas.TaskUpdateRequest
         values.append(payload.status.value)
         if payload.status == Task_schemas.TaskStatus.completed:
             fields.append("completed_at = UTC_TIMESTAMP()")
+            fields.append("completed_by = %s")    
+            values.append(user_id)                
         else:
             fields.append("completed_at = NULL")
+            fields.append("completed_by = NULL")   
     if payload.priority is not None:
         fields.append("priority = %s")
         values.append(payload.priority.value)
@@ -234,12 +213,9 @@ async def update_task(cur, task_id: int, payload: Task_schemas.TaskUpdateRequest
 
     if not fields:
         raise ValueError("No fields provided for update")
-
     values.append(task_id)
-
     sql = f"UPDATE tbl_tasks SET {', '.join(fields)} WHERE task_id = %s AND deleted_on IS NULL"
     await cur.execute(sql, tuple(values))
-
     if payload.assignees is not None:
         await cur.execute(
             """
@@ -260,7 +236,6 @@ async def update_task(cur, task_id: int, payload: Task_schemas.TaskUpdateRequest
                 """,
                 (task_id, uid)
             )
-
     await cur.execute(
         """
         SELECT
@@ -277,8 +252,7 @@ async def update_task(cur, task_id: int, payload: Task_schemas.TaskUpdateRequest
     return row, assignees
 
 
-
-async def delete_task(cur, task_id: int):
+async def delete_task(cur, task_id: str):
     await cur.execute(
         "SELECT task_id FROM tbl_tasks WHERE task_id = %s AND deleted_on IS NULL",
         (task_id,)

@@ -54,7 +54,7 @@ async def get_projects(status: Project_schemas.ProjectStatus | None = Query(None
 
 #update project API Endpoint
 @router.put("/{project_id}", response_model=Project_schemas.ProjectResponse)
-async def update_project(project_id: int,payload: Project_schemas.ProjectUpdateRequest,
+async def update_project(project_id: str,payload: Project_schemas.ProjectUpdateRequest,
                         cur=Depends(get_db),
                         current_user=Depends(require_permission("projects", "project", "update")),):
     try:
@@ -97,7 +97,7 @@ async def update_project(project_id: int,payload: Project_schemas.ProjectUpdateR
 
 #delete project from tbl_project_memebers(soft deletion)
 @router.delete("/{project_id}")
-async def delete_project(project_id: int,cur=Depends(get_db),current_user=Depends(require_permission("projects", "project", "delete")),):
+async def delete_project(project_id: str,cur=Depends(get_db),current_user=Depends(require_permission("projects", "project", "delete")),):
     try:
         await project_repository.delete_project(cur, project_id)
         await log_activity(
@@ -123,7 +123,7 @@ async def delete_project(project_id: int,cur=Depends(get_db),current_user=Depend
     "/{project_id}/members",
     response_model=Project_schemas.ProjectMemberResponse
 )
-async def assign_project_members(project_id: int,payload: Project_schemas.ProjectMemberCreateRequest,cur=Depends(get_db),
+async def assign_project_members(project_id: str,payload: Project_schemas.ProjectMemberCreateRequest,cur=Depends(get_db),
                             current_user=Depends(require_permission("projects","project","manage_members")),):
     try:
         inserted_count = await project_repository.assign_project_members(

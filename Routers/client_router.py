@@ -47,7 +47,7 @@ async def get_clients(cur=Depends(get_db),current_user=Depends(require_permissio
         )
 #get client detail by single id
 @router.get("/{client_id}", response_model=Client_schemas.ClientDetailResponse)
-async def get_client(client_id: int,cur=Depends(get_db),current_user=Depends(require_permission("clients", "client", "read")),):
+async def get_client(client_id: str,cur=Depends(get_db),current_user=Depends(require_permission("clients", "client", "read")),):
     try:
         data = await client_repository.get_client(cur, client_id)
         return Client_schemas.ClientDetailResponse(
@@ -64,7 +64,7 @@ async def get_client(client_id: int,cur=Depends(get_db),current_user=Depends(req
 
 #update client information including full_anme, type and status
 @router.put("/{client_id}", response_model=Client_schemas.ClientDetailResponse)
-async def update_client(client_id: int,payload: Client_schemas.ClientUpdateRequest,cur=Depends(get_db),current_user=Depends(get_current_user),):
+async def update_client(client_id: str,payload: Client_schemas.ClientUpdateRequest,cur=Depends(get_db),current_user=Depends(get_current_user),):
     try:
         data = await client_repository.update_client(cur, client_id, payload, current_user["user_id"])
         return Client_schemas.ClientDetailResponse(
@@ -86,7 +86,7 @@ async def update_client(client_id: int,payload: Client_schemas.ClientUpdateReque
     
 #update client address
 @router.put("/{client_id}/addressess/{address_id}", response_model=Client_schemas.ClientDetailResponse)
-async def update_address(client_id:int, address_id:int, payload: Client_schemas.ClientAddressUpdate, 
+async def update_address(client_id:str, address_id:str, payload: Client_schemas.ClientAddressUpdate, 
                          cur=Depends(get_db),current_user=Depends(get_current_user),):
     try:
         await client_repository.update_address(cur, client_id, address_id, payload, current_user["user_id"])
@@ -107,7 +107,7 @@ async def update_address(client_id:int, address_id:int, payload: Client_schemas.
     
 #uopdate poc detail endpoint
 @router.put("/{client_id}/pocs/{poc_id}", response_model=Client_schemas.ClientDetailResponse)
-async def update_poc(client_id:int, poc_id:int, payload: Client_schemas.ClientPOCUpdate, cur=Depends(get_db),
+async def update_poc(client_id:str, poc_id:str, payload: Client_schemas.ClientPOCUpdate, cur=Depends(get_db),
                      current_user=Depends(get_current_user),):
     try:
         await client_repository.update_poc(cur, client_id, poc_id, payload, current_user["user_id"])

@@ -9,13 +9,8 @@ router = APIRouter(prefix="/attachments", tags=["Attachments"])
 
 #upload attachment endpoint 
 @router.post("/{entity_type}/{entity_id}", response_model=Attachment_schemas.AttachmentResponse, status_code=201)
-async def upload_attachment(
-    entity_type: Attachment_schemas.EntityType,
-    entity_id: int,
-    file: UploadFile=File(...,),
-    cur=Depends(get_db),
-    current_user = Depends(get_current_user)
-):
+async def upload_attachment(entity_type: Attachment_schemas.EntityType,entity_id: str,file: UploadFile=File(...,),
+                            cur=Depends(get_db),current_user = Depends(get_current_user)):
     try:
         row = await attachment_repository.upload_attachment(
             cur, 
@@ -60,12 +55,7 @@ async def upload_attachment(
     
 #listing all 
 @router.get("/{entity_type}/{entity_id}")
-async def list_attachment(
-    entity_type: Attachment_schemas.EntityType,
-    entity_id: int, 
-    cur=Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+async def list_attachment(entity_type: Attachment_schemas.EntityType,entity_id: str, cur=Depends(get_db),current_user=Depends(get_current_user)):
     try:
         attachments = await attachment_repository.list_attachments(
             cur, entity_type=entity_type.value, entity_id=entity_id, user_id=current_user["user_id"],
@@ -87,11 +77,7 @@ async def list_attachment(
     
 #delete attachment from tbl_attachments
 @router.delete("/{attachment_id}")
-async def delete_attachment(
-    attachment_id: int,
-    cur=Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+async def delete_attachment(attachment_id: str,cur=Depends(get_db),current_user=Depends(get_current_user)):
     try:
         await attachment_repository.delete_attachment(
             cur,

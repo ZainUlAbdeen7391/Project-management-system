@@ -5,6 +5,7 @@ from repositories import user_repository
 from configurations.database import get_db
 import aiomysql
 from utilities import security
+from utilities.uuid_utils import generate_uuid7
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -25,7 +26,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme),cur: aiomysql.Dic
     if user_id is None:
         raise credentials_exception
 
-    user = await user_repository.get_user_by_id(cur, int(user_id))
+    user = await user_repository.get_user_by_id(cur, user_id)
 
     if user is None:
         raise credentials_exception
@@ -85,30 +86,29 @@ def require_permission(module_slug: str, resource: str, action: str):
     return _checker
 
 #Activity Log
-async def log_activity(
-    cur: aiomysql.DictCursor,
-    user_id: int,
-    action: str,
-    entity_type: str,
-    entity_id: int = None,
-    description: str = None,
-    old_values: dict = None,
-    new_values: dict = None
-):
-    await cur.execute("""
-        INSERT INTO tbl_activity_logs 
-        (user_id, action, entity_type, entity_id, description, old_values, new_values, created_on)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-    """, (
-        user_id,
-        action,
-        entity_type,
-        entity_id,
-        description,
-        json.dumps(old_values) if old_values else None,
-        json.dumps(new_values) if new_values else None
-    ))
-    
+
+async def log_activity(cur, user_id, action, entity_type, entity_id=None,
+                       description=None, old_values=None, new_values=None):
+    import json
+    activity_id = generate_uuid7()
+    await cur.execute(
+        """
+        INSERT INTO tbl_activity_logs
+            (activity_id, user_id, action, entity_type, entity_id, 
+             description, old_values, new_values)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            activity_id,   
+            user_id,
+            action,
+            entity_type,
+            entity_id,
+            description,
+            json.dumps(old_values) if old_values else None,
+            json.dumps(new_values) if new_values else None,
+        )
+    )
 
     
     

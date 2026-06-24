@@ -1,5 +1,7 @@
-#create client
-async def create_client(cur, payload, user_id: int):
+from utilities.uuid_utils import generate_uuid7
+
+# create client
+async def create_client(cur, payload, user_id: str):
     await cur.execute(
         """
         SELECT client_id FROM tbl_client
@@ -12,17 +14,14 @@ async def create_client(cur, payload, user_id: int):
     if await cur.fetchone():
         raise ValueError("Client already exists")
 
+    client_id = generate_uuid7()
     await cur.execute(
         """
-        INSERT INTO tbl_client (client_name, client_type, status, created_by, updated_by)
-        VALUES (%s, %s, 1, %s, %s)
+        INSERT INTO tbl_client (client_id, client_name, client_type, status, created_by, updated_by)
+        VALUES (%s, %s, %s, 1, %s, %s)
         """,
-        (payload.client_name, payload.client_type.value, user_id, user_id),
+        (client_id, payload.client_name, payload.client_type.value, user_id, user_id),
     )
-    client_id = getattr(cur, "lastrowid", None)
-    if not client_id:
-        await cur.execute("SELECT LAST_INSERT_ID() AS id")
-        client_id = (await cur.fetchone())["id"]
 
     for loc in payload.locations:
         await cur.execute(
@@ -47,15 +46,16 @@ async def create_client(cur, payload, user_id: int):
         if await cur.fetchone():
             raise ValueError(f"POC phone '{loc.poc.phone}' already exists")
 
-        # 3a. Insert address (linked to client_id)
+        address_id = generate_uuid7()
         await cur.execute(
             """
             INSERT INTO tbl_client_address
-            (client_id, address_line_1, address_line_2, city, state,
+            (address_id, client_id, address_line_1, address_line_2, city, state,
             zip_code, country, address_type, is_primary, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
             """,
             (
+                address_id,
                 client_id,
                 loc.address.address_line_1,
                 loc.address.address_line_2,
@@ -67,18 +67,16 @@ async def create_client(cur, payload, user_id: int):
                 1 if loc.address.is_primary else 0,
             ),
         )
-        address_id = getattr(cur, "lastrowid", None)
-        if not address_id:
-            await cur.execute("SELECT LAST_INSERT_ID() AS id")
-            address_id = (await cur.fetchone())["id"]
 
+        poc_id = generate_uuid7()
         await cur.execute(
             """
             INSERT INTO tbl_client_poc
-            (client_id, address_id, full_name, email, phone, status)
-            VALUES (%s, %s, %s, %s, %s, 1)
+            (poc_id, client_id, address_id, full_name, email, phone, status)
+            VALUES (%s, %s, %s, %s, %s, %s, 1)
             """,
             (
+                poc_id,
                 client_id,
                 address_id,
                 loc.poc.full_name,
@@ -90,7 +88,7 @@ async def create_client(cur, payload, user_id: int):
     return await fetch_client_detail(cur, client_id)
 
 
-async def fetch_client_detail(cur, client_id: int):
+async def fetch_client_detail(cur, client_id: str):
     await cur.execute(
         """
         SELECT client_id, client_name, client_type, status,
@@ -129,7 +127,7 @@ async def fetch_client_detail(cur, client_id: int):
     return {"client": client, "addresses": addresses, "pocs": pocs}
 
 
-#get all clients
+# get all clients
 async def list_clients(cur):
     await cur.execute(
         """
@@ -141,7 +139,7 @@ async def list_clients(cur):
         """
     )
     clients = await cur.fetchall()
-    
+
     result = []
     for client in clients:
         client_id = client["client_id"]
@@ -181,13 +179,13 @@ async def list_clients(cur):
     return result
 
 
-#get Single Client
-async def get_client(cur, client_id: int):
+# get Single Client
+async def get_client(cur, client_id: str):
     return await fetch_client_detail(cur, client_id)
 
 
-#update endpoint
-async def update_client(cur, client_id: int, payload, user_id: int):
+# update client
+async def update_client(cur, client_id: str, payload, user_id: str):
     await cur.execute(
         """
         SELECT client_id FROM tbl_client
@@ -243,77 +241,19 @@ async def update_client(cur, client_id: int, payload, user_id: int):
     return await fetch_client_detail(cur, client_id)
 
 
-#client address update function 
-async def udpate_address(cur, client_id: int, address_id: int, payload, user_id: int):
-    #verify address belong to the clint
-    await cur.execute(
-    """
-    SELECT address_id FROM tbl_client_address
-    WHERE client_id = %s AND address_id = %s AND deleted_on IS NULL
-    """, (client_id, address_id)
-    )
-    if not await cur.fetchone():
-        raise ValueError("Address not found")
-    
-    fields = []
-    values = []
-    if payload.address_line_1 is not None:
-        fields.append("address_line_1 = %s")
-        values.append(payload.address_line_1)
-    if payload.address_line_2 is not None:
-        fields.append("address_line_2 = %s")
-        values.append(payload.address_line_2)
-    if payload.city is not None:
-        fields.append("city = %s")
-        values.append(payload.city)
-    if payload.state is not None:
-        fields.append("state = %s")
-        values.append(payload.state)
-    if payload.zip_code is not None:
-        fields.append("zip_code = %s")
-        values.append(payload.zip_code)
-    if payload.country is not None:
-        fields.append("country = %s")
-        values.append(payload.country)
-    if payload.address_type is not None:
-        fields.append("address_type = %s")
-        values.append(payload.address_type.value)
-    if payload.is_primary is not None:
-        fields.append("is_primary = %s")
-        values.append(1 if payload.is_primary else 0)
-    if payload.status is not None:
-        fields.append("status = %s")
-        values.append(1 if payload.status else 0)
-
-    if not fields:
-        raise ValueError("No fields to update")
-
-    fields.append("updated_on = NOW()")
-    values.append(address_id)
-    
-    await cur.execute(
-        f"""
-        UPDATE tbl_client_address 
-        SET {', '.join(fields)} 
-        WHERE address_id = %s
-        """,
-        tuple(values)
-    )
-    return {"address_id": address_id}
-
-
-#update POC detail
-async def update_address(cur, client_id: int, address_id: int, payload, user_id: int):
-    # Verify address belongs to client
+# update client address
+async def update_address(cur, client_id: str, address_id: str, payload, user_id: str):
+    # verify address belongs to the client
     await cur.execute(
         """
-        SELECT address_id FROM tbl_client_address 
-        WHERE address_id = %s AND client_id = %s AND deleted_on IS NULL
-        """,
-        (address_id, client_id)
+        SELECT address_id FROM tbl_client_address
+        WHERE client_id = %s AND address_id = %s AND deleted_on IS NULL
+        """, 
+        (client_id, address_id)
     )
     if not await cur.fetchone():
         raise ValueError("Address not found")
+
     fields = []
     values = []
     if payload.address_line_1 is not None:
@@ -343,8 +283,10 @@ async def update_address(cur, client_id: int, address_id: int, payload, user_id:
     if payload.status is not None:
         fields.append("status = %s")
         values.append(1 if payload.status else 0)
+
     if not fields:
         raise ValueError("No fields to update")
+
     fields.append("updated_on = NOW()")
     values.append(address_id)
 
@@ -359,19 +301,20 @@ async def update_address(cur, client_id: int, address_id: int, payload, user_id:
     return {"address_id": address_id}
 
 
-#update poc function 
-async def update_poc(cur, client_id: int, poc_id: int, payload, user_id: int):
-    #evrify POC belongs to client
+# update POC
+async def update_poc(cur, client_id: str, poc_id: str, payload, user_id: str):
+    # verify POC belongs to client
     await cur.execute(
         """
         SELECT poc_id, email, phone FROM tbl_client_poc
-        WHERE poc_id = %s AND client_id =%s AND deleted_on IS NULL
+        WHERE poc_id = %s AND client_id = %s AND deleted_on IS NULL
         """,
         (poc_id, client_id)
     )
     existing = await cur.fetchone()
     if not existing:
         raise ValueError("POC not found")
+
     fields = []
     values = []
     if payload.full_name is not None:
@@ -403,7 +346,7 @@ async def update_poc(cur, client_id: int, poc_id: int, payload, user_id: int):
         values.append(payload.phone)
 
     if payload.address_id is not None:
-        #ervify new address belongs to same client
+        # verify new address belongs to same client
         await cur.execute(
             """
             SELECT address_id FROM tbl_client_address 
@@ -418,6 +361,7 @@ async def update_poc(cur, client_id: int, poc_id: int, payload, user_id: int):
     if payload.status is not None:
         fields.append("status = %s")
         values.append(1 if payload.status else 0)
+
     if not fields:
         raise ValueError("No fields to update")
 
@@ -434,12 +378,10 @@ async def update_poc(cur, client_id: int, poc_id: int, payload, user_id: int):
     )
     return {"poc_id": poc_id}
 
-#delete client
 
-async def delete_client_entity(cur,entity_type: str,entity_id: int,user_id: int,):
-    #delete client 
+# delete client / address / poc
+async def delete_client_entity(cur, entity_type: str, entity_id: str, user_id: str):
     if entity_type == "client":
-
         await cur.execute(
             """
             SELECT client_id
@@ -449,7 +391,6 @@ async def delete_client_entity(cur,entity_type: str,entity_id: int,user_id: int,
             """,
             (entity_id,),
         )
-
         if not await cur.fetchone():
             raise ValueError("Client not found")
 
@@ -457,16 +398,14 @@ async def delete_client_entity(cur,entity_type: str,entity_id: int,user_id: int,
             """
             UPDATE tbl_client
             SET deleted_on = NOW(), updated_on = NOW(),
-            updated_by = %s
+            updated_by = %s, status = 0
             WHERE client_id = %s
             """,
             (user_id, entity_id),
         )
-
         return {"message": "Client deleted successfully"}
-        #delete address 
-    elif entity_type == "address":
 
+    elif entity_type == "address":
         await cur.execute(
             """
             SELECT address_id
@@ -476,22 +415,20 @@ async def delete_client_entity(cur,entity_type: str,entity_id: int,user_id: int,
             """,
             (entity_id,),
         )
-
         if not await cur.fetchone():
             raise ValueError("Address not found")
 
         await cur.execute(
             """
             UPDATE tbl_client_address
-            SET deleted_on = NOW(), updated_on = NOW()
+            SET deleted_on = NOW(), updated_on = NOW(), status = 0
             WHERE address_id = %s
             """,
             (entity_id,),
         )
         return {"message": "Address deleted successfully"}
-#delete poc
-    elif entity_type == "poc":
 
+    elif entity_type == "poc":
         await cur.execute(
             """
             SELECT poc_id
@@ -500,17 +437,18 @@ async def delete_client_entity(cur,entity_type: str,entity_id: int,user_id: int,
             """,
             (entity_id,),
         )
-
         if not await cur.fetchone():
             raise ValueError("POC not found")
 
         await cur.execute(
             """
             UPDATE tbl_client_poc
-            SET deleted_on = NOW(), updated_on = NOW()
+            SET deleted_on = NOW(), updated_on = NOW(), status = 0
             WHERE poc_id = %s
             """,
             (entity_id,),
         )
         return {"message": "POC deleted successfully"}
 
+    else:
+        raise ValueError("Invalid entity type")

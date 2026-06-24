@@ -33,7 +33,6 @@ def hash_password(plain: str) -> str:
     hashed = bcrypt.hashpw(password_bytes, salt)
     return hashed.decode("utf-8")
 
-
 def verify_password(plain: str, hashed: str) -> bool:
     prehash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
     return bcrypt.checkpw(prehash.encode("utf-8"), hashed.encode("utf-8"))

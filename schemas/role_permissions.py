@@ -33,7 +33,6 @@ class PermissionOut(PermissionBase):
     permission_id: str
     created_on: datetime
     updated_on: datetime
-    deleted_on: Optional[datetime] = None
     module_name: Optional[str] = None
     module_slug: Optional[str] = None
     role_name: Optional[str] = None

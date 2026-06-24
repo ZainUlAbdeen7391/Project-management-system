@@ -62,7 +62,6 @@ class TaskUpdateRequest(BaseModel):
 
 
 class TaskAssigneeItem(BaseModel):
-    id: str
     user_id: str
     full_name: Optional[str] = None
 

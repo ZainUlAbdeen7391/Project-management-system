@@ -9,14 +9,10 @@ from repositories import role_permission_repository as repo
 router = APIRouter(prefix="/role-permissions", tags=["Role Permissions"])
 
 
-# ── Create Permission ─────────────────────────────────────────────────────────
+#create Permission
 
 @router.post("", response_model=PermissionOut, status_code=status.HTTP_201_CREATED)
-async def create_permission(
-    payload: PermissionCreate,
-    cur=Depends(get_db),
-    current_user: dict = Depends(require_permission("permissions", "permission", "create")),
-):
+async def create_permission(payload: PermissionCreate,cur=Depends(get_db),current_user: dict = Depends(require_permission("permissions", "permission", "create")),):
     try:
         permission_id = await repo.create_permission(cur, payload)
     except IntegrityError:
@@ -44,27 +40,21 @@ async def create_permission(
     return row
 
 
-# ── List Permissions ──────────────────────────────────────────────────────────
+#List all Permissions
 
 @router.get("", response_model=List[PermissionOut])
-async def list_permissions(
-    role_id: Optional[int] = Query(None),
-    module_id: Optional[int] = Query(None),
-    cur=Depends(get_db),
-    current_user: dict = Depends(require_permission("permissions", "permission", "read")),
-):
+async def list_permissions(role_id: Optional[str] = Query(None),module_id: Optional[str] = Query(None),
+                           cur=Depends(get_db),current_user: dict = Depends(require_permission("permissions", "permission", "read")),):
+    
+    
     return await repo.list_permissions(cur, role_id=role_id, module_id=module_id)
 
 
-# ── Update Permission ──────────────────────────────────────────────────────────
+#Update Permission
 
 @router.put("/{permission_id}", response_model=PermissionOut)
-async def update_permission(
-    permission_id: int,
-    payload: PermissionUpdate,
-    cur=Depends(get_db),
-    current_user: dict = Depends(require_permission("permissions", "permission", "update")),
-):
+async def update_permission(permission_id: str,payload: PermissionUpdate,cur=Depends(get_db),
+                            current_user: dict = Depends(require_permission("permissions", "permission", "update")),):
     old = await repo.get_active_permission_by_id(cur, permission_id)
     if not old:
         raise HTTPException(status_code=404, detail="Permission not found.")
@@ -90,11 +80,11 @@ async def update_permission(
     return updated
 
 
-# ── Delete Permission (soft) ────────────────────────────────────────────────────
+#Delete Permission
 
 @router.delete("/{permission_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_permission(
-    permission_id: int,
+    permission_id: str,
     cur=Depends(get_db),
     current_user: dict = Depends(require_permission("permissions", "permission", "delete")),
 ):

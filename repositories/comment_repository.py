@@ -1,4 +1,7 @@
-async def _check_task_access(cur, task_id: int, user_id: int):
+from utilities.uuid_utils import generate_uuid7
+
+
+async def _check_task_access(cur, task_id: str, user_id: str):
     # check is_responsible
     await cur.execute(
         """
@@ -39,7 +42,7 @@ async def _check_task_access(cur, task_id: int, user_id: int):
     raise ValueError("You are not authorized to comment on this task")
 
 
-async def _check_comment_owner(cur, comment_id: int, user_id: int):
+async def _check_comment_owner(cur, comment_id: str, user_id: str):
     await cur.execute(
         """
         SELECT comment_id FROM tbl_comments
@@ -51,7 +54,7 @@ async def _check_comment_owner(cur, comment_id: int, user_id: int):
         raise ValueError("You can only delete or edit your own comment")
 
 
-async def _fetch_replies(cur, parent_id: int) -> list[dict]:
+async def _fetch_replies(cur, parent_id: str) -> list[dict]:
     await cur.execute(
         """
         SELECT
@@ -74,7 +77,7 @@ async def _fetch_replies(cur, parent_id: int) -> list[dict]:
 
 
 
-async def create_comment(cur, task_id: int, comment: str, parent_id: int | None, user_id: int):
+async def create_comment(cur, task_id: str, comment: str, parent_id: str | None, user_id: str):
     await cur.execute(
         "SELECT task_id FROM tbl_tasks WHERE task_id = %s AND deleted_on IS NULL",
         (task_id,)
@@ -96,24 +99,15 @@ async def create_comment(cur, task_id: int, comment: str, parent_id: int | None,
             raise ValueError("Parent comment does not exist on this task")
     else:
         parent_id = None
-
+    comment_id = generate_uuid7()
     await cur.execute(
         """
         INSERT INTO tbl_comments
-            (task_id, user_id, parent_id, comment, status, created_by, updated_by)
-        VALUES (%s, %s, %s, %s, 1, %s, %s)
+            (comment_id, task_id, user_id, parent_id, comment, status, created_by, updated_by)
+        VALUES (%s, %s, %s, %s, %s, 1, %s, %s)
         """,
-        (task_id, user_id, parent_id, comment, user_id, user_id)
+        (comment_id, task_id, user_id, parent_id, comment, user_id, user_id)
     )
-
-    comment_id = getattr(cur, "lastrowid", None)
-    if not comment_id:
-        await cur.execute("SELECT LAST_INSERT_ID() as id")
-        result = await cur.fetchone()
-        comment_id = result["id"] if result else None
-
-    if not comment_id:
-        raise RuntimeError("Failed to retrieve comment_id after insert")
 
     await cur.execute(
         """
@@ -131,7 +125,7 @@ async def create_comment(cur, task_id: int, comment: str, parent_id: int | None,
 
 
 
-async def list_comments(cur, task_id: int, user_id: int):
+async def list_comments(cur, task_id: str, user_id: str):
     await cur.execute(
         "SELECT task_id FROM tbl_tasks WHERE task_id = %s AND deleted_on IS NULL",
         (task_id,)
@@ -164,7 +158,7 @@ async def list_comments(cur, task_id: int, user_id: int):
 
 
 
-async def update_comment(cur, comment_id: int, new_comment: str, user_id: int):
+async def update_comment(cur, comment_id: str, new_comment: str, user_id: str):
     await cur.execute(
         """
         SELECT comment_id FROM tbl_comments
@@ -201,7 +195,7 @@ async def update_comment(cur, comment_id: int, new_comment: str, user_id: int):
     return await cur.fetchone()
 
 
-async def delete_comment(cur, comment_id: int, user_id: int):
+async def delete_comment(cur, comment_id: str, user_id: str):
     await cur.execute(
         """
         SELECT comment_id FROM tbl_comments
@@ -218,7 +212,7 @@ async def delete_comment(cur, comment_id: int, user_id: int):
     await cur.execute(
         """
         UPDATE tbl_comments
-        SET deleted_on = UTC_TIMESTAMP()
+        SET deleted_on = UTC_TIMESTAMP(), status = 0
         WHERE comment_id = %s AND deleted_on IS NULL
         """,
         (comment_id,)
@@ -227,7 +221,7 @@ async def delete_comment(cur, comment_id: int, user_id: int):
     await cur.execute(
         """
         UPDATE tbl_comments
-        SET deleted_on = UTC_TIMESTAMP()
+        SET deleted_on = UTC_TIMESTAMP(), status = 0
         WHERE parent_id = %s AND deleted_on IS NULL
         """,
         (comment_id,)

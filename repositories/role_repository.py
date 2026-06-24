@@ -1,9 +1,12 @@
+from utilities.uuid_utils import generate_uuid7
 #create
-async def create_role(cur, payload, created_by: int) -> int:
-    """Inserts a new role row and returns its role_id."""
+async def create_role(cur, payload, created_by: str) -> str:
+    role_id = generate_uuid7()   
+    
     await cur.execute(
         """
         INSERT INTO tbl_roles (
+            role_id,              
             role_name,
             role_slug,
             description,
@@ -12,9 +15,10 @@ async def create_role(cur, payload, created_by: int) -> int:
             created_on,
             updated_on
         )
-        VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
+        VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())   
         """,
         (
+            role_id,                
             payload.role_name,
             payload.role_slug,
             payload.description,
@@ -22,25 +26,21 @@ async def create_role(cur, payload, created_by: int) -> int:
             created_by,
         ),
     )
-    return cur.lastrowid
-
-
+    return role_id
 #listing
-async def get_role_by_id_any_status(cur, role_id: int):
-    """Fetches a role by id regardless of deleted/active state (used right after insert)."""
+async def get_role_by_id_any_status(cur, role_id: str):
     await cur.execute(
-        "SELECT * FROM tbl_roles WHERE role_id = %s",
+        "SELECT role_id, role_name, role_slug, description, status,created_by, updated_by, created_on, updated_on FROM tbl_roles WHERE role_id = %s",
         (role_id,),
     )
     return await cur.fetchone()
 
 
-async def get_active_role_by_id(cur, role_id: int):
-    """Fetches a single non-deleted role by id with full field set."""
+async def get_active_role_by_id(cur, role_id: str):
     await cur.execute(
         """
         SELECT role_id, role_name, role_slug, description, status,
-               created_by, updated_by, created_on, updated_on, deleted_on
+               created_by, updated_by, created_on, updated_on
         FROM tbl_roles
         WHERE role_id = %s AND deleted_on IS NULL
         """,
@@ -48,15 +48,13 @@ async def get_active_role_by_id(cur, role_id: int):
     )
     return await cur.fetchone()
 
-
 async def list_active_roles(cur):
-    """Lists all non-deleted roles."""
     await cur.execute(
         """
         SELECT role_id, role_name, role_slug,
                description, status,
                created_by, updated_by,
-               created_on, updated_on, deleted_on
+               created_on, updated_on
         FROM tbl_roles
         WHERE deleted_on IS NULL
         ORDER BY role_id
@@ -66,15 +64,10 @@ async def list_active_roles(cur):
 
 
 #udoate role
-async def update_role(cur, role_id: int, payload, updated_by: int) -> bool:
-    """
-    Applies a partial update to a role row.
-    Returns False if there were no fields to update (caller treats as no-op),
-    True if the UPDATE statement executed (caller should check cur.rowcount).
-    """
+async def update_role(cur, role_id: str, payload, updated_by: str) -> bool:
+
     fields = []
     values = []
-
     if payload.role_name is not None:
         fields.append("role_name = %s")
         values.append(payload.role_name)
@@ -101,10 +94,8 @@ async def update_role(cur, role_id: int, payload, updated_by: int) -> bool:
     await cur.execute(query, tuple(values))
     return True
 
-
 #delete role
-async def soft_delete_role(cur, role_id: int, updated_by: int) -> int:
-    """Soft-deletes a role. Returns affected row count."""
+async def soft_delete_role(cur, role_id: str, updated_by: str) -> str:
     await cur.execute(
         """
         UPDATE tbl_roles

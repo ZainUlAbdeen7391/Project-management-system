@@ -115,7 +115,7 @@ class ProjectMemberCreateRequest(BaseModel):
 
     @field_validator("members", "project_managers")
     @classmethod
-    def no_duplicates(cls, v: List[int]) -> List[int]:
+    def no_duplicates(cls, v: List[str]) -> List[str]:
         if len(v) != len(set(v)):
             raise ValueError("Duplicate IDs are not allowed")
         return v

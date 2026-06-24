@@ -86,8 +86,8 @@ class ClientListItem(BaseModel):
     client_name: str
     client_type: str
     status: bool
-    created_by: int
-    updated_by: int
+    created_by: str
+    updated_by: str
     created_on: datetime
     updated_on: datetime
     addresses: List[ClientAddressResponse] = []
@@ -133,7 +133,7 @@ class ClientPOCUpdate(BaseModel):
     full_name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Optional[str] = Field(None, max_length=100)
     phone: Optional[str] = Field(None, max_length=20)
-    address_id: Optional[int] = None
+    address_id: Optional[str] = None
     status: Optional[bool] = None
     
 class ClientEntityType(str, Enum):

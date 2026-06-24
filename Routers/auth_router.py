@@ -46,7 +46,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), cur=Depends(ge
 
         roles       = await user_repository.get_user_roles(cur, user["user_id"])
         permissions = await user_repository.get_user_permissions(cur, user["user_id"])
-        access_token  = security.create_access_token(data={"sub": str(user["user_id"])})
+        access_token = security.create_access_token(data={"sub": user["user_id"]})
         refresh_token = await user_repository.create_refresh_token(cur, user["user_id"])
 
         return {
@@ -68,13 +68,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), cur=Depends(ge
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
 
 
-#Forgot Password
+#forgot Password
 @router.post("/forgot-password")
 async def forgot_password(payload: User_schemas.ForgotPasswordRequest, cur=Depends(get_db)):
     try:
         user = await user_repository.get_user_by_email_hmac(cur, payload.email)
         if not user:
-            # Return same message whether user exists or not (security best practice)
             return {"message": "A link has been sent to your email, please check and copy the token"}
 
         raw_token, token_hash = security.generate_reset_token()
@@ -115,8 +114,7 @@ async def forgot_password(payload: User_schemas.ForgotPasswordRequest, cur=Depen
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-#Reset Password
-
+#reset Password
 @router.post("/reset-password")
 async def reset_password(payload: User_schemas.ResetPasswordRequest, cur=Depends(get_db)):
     entry = await user_repository.validate_reset_token(cur, payload.token)

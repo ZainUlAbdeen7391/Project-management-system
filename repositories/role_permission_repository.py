@@ -1,4 +1,4 @@
-
+from utilities.uuid_utils import generate_uuid7
 _SELECT_WITH_JOINS = """
     SELECT
         p.*,
@@ -11,16 +11,17 @@ _SELECT_WITH_JOINS = """
 
 
 #create
-async def create_permission(cur, payload) -> int:
-    """Inserts a new permission row and returns its permission_id."""
+async def create_permission(cur, payload) -> str:
+    permission_id = generate_uuid7()
     await cur.execute(
         """
         INSERT INTO tbl_module_role_permissions
-            (module_id, role_id, permission_name, permission_slug,
+            (permission_id, module_id, role_id, permission_name, permission_slug,
              resource, action, description, status, created_on, updated_on)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
         """,
         (
+            permission_id,
             payload.module_id,
             payload.role_id,
             payload.permission_name,
@@ -31,12 +32,10 @@ async def create_permission(cur, payload) -> int:
             payload.status,
         ),
     )
-    await cur.execute("SELECT LAST_INSERT_ID() AS id")
-    return (await cur.fetchone())["id"]
-
+    return permission_id
 
 #Listing
-async def get_permission_by_id(cur, permission_id: int):
+async def get_permission_by_id(cur, permission_id: str):
     """Fetches a single permission (with module/role names) by id, including soft-deleted ones."""
     await cur.execute(
         f"{_SELECT_WITH_JOINS} WHERE p.permission_id = %s",
@@ -45,8 +44,7 @@ async def get_permission_by_id(cur, permission_id: int):
     return await cur.fetchone()
 
 
-async def get_active_permission_by_id(cur, permission_id: int):
-    """Fetches a single non-deleted permission row (raw, no joins)."""
+async def get_active_permission_by_id(cur, permission_id: str):
     await cur.execute(
         "SELECT * FROM tbl_module_role_permissions WHERE permission_id = %s AND deleted_on IS NULL",
         (permission_id,),
@@ -54,8 +52,7 @@ async def get_active_permission_by_id(cur, permission_id: int):
     return await cur.fetchone()
 
 
-async def get_permission_for_delete(cur, permission_id: int):
-    """Fetches minimal fields needed for the delete pre-checks."""
+async def get_permission_for_delete(cur, permission_id: str):
     await cur.execute(
         """
         SELECT permission_id, permission_slug, role_id, deleted_on, status
@@ -67,8 +64,7 @@ async def get_permission_for_delete(cur, permission_id: int):
     return await cur.fetchone()
 
 
-async def list_permissions(cur, role_id: int | None, module_id: int | None):
-    """Lists active permissions, optionally filtered by role_id and/or module_id."""
+async def list_permissions(cur, role_id: str | None, module_id: str | None):
     sql = f"{_SELECT_WITH_JOINS} WHERE p.deleted_on IS NULL"
     params = []
 
@@ -85,12 +81,8 @@ async def list_permissions(cur, role_id: int | None, module_id: int | None):
 
 
 #update function
-async def update_permission(cur, permission_id: int, payload) -> bool:
-    """
-    Applies a partial update to a permission row.
-    Returns False if there were no fields to update (caller treats as no-op),
-    True if the UPDATE statement executed.
-    """
+async def update_permission(cur, permission_id: str, payload) -> bool:
+
     fields = []
     values = []
 
@@ -126,8 +118,7 @@ async def update_permission(cur, permission_id: int, payload) -> bool:
     return True
 
 #delete
-async def soft_delete_permission(cur, permission_id: int) -> int:
-    """Soft-deletes an active permission row. Returns affected row count."""
+async def soft_delete_permission(cur, permission_id: str) -> str:
     await cur.execute(
         """
         UPDATE tbl_module_role_permissions
