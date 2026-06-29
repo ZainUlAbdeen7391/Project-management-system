@@ -274,26 +274,34 @@ async def get_user_roles(cur, user_id: str):
 async def get_user_permissions(cur, user_id: str):
     await cur.execute(
         """
-        SELECT
-            mrp.permission_id,
-            mrp.module_id,
+        SELECT DISTINCT
+            p.permission_id,
+            p.role_id,
+            p.module_id,
             m.module_name,
-            mrp.permission_name,
-            mrp.permission_slug,
-            mrp.resource,
-            mrp.action,
-            mrp.description
-        FROM tbl_module_role_permissions mrp
-        JOIN tbl_modules m ON mrp.module_id = m.module_id
-        WHERE mrp.role_id IN (
-            SELECT role_id FROM tbl_user_role
-            WHERE user_id = %s
-              AND status = 'active'
-              AND deleted_on IS NULL
-        )
-          AND mrp.status = 1
-          AND mrp.deleted_on IS NULL
-          AND m.status = 1
+            m.module_slug,
+            p.permission_name,
+            p.permission_slug,
+            p.resource,
+            p.action,
+            p.description
+        FROM tbl_user_role ur
+        INNER JOIN tbl_roles r
+            ON ur.role_id = r.role_id
+            AND r.deleted_on IS NULL
+            AND r.status = 1
+        INNER JOIN tbl_module_role_permissions p
+            ON r.role_id = p.role_id
+            AND p.deleted_on IS NULL
+            AND p.status = 1
+        INNER JOIN tbl_modules m
+            ON p.module_id = m.module_id
+            AND m.deleted_on IS NULL
+            AND m.status = 1
+        WHERE ur.user_id = %s
+          AND ur.status = 'active'
+          AND ur.deleted_on IS NULL
+        ORDER BY m.module_name, p.resource, p.action
         """,
         (user_id,),
     )

@@ -9,6 +9,7 @@ from Routers import client_router
 from Routers import task_router
 from Routers import comment_router
 from Routers import attachment_router
+from Routers import client_bulk_router
 from configurations.database import Database
 from fastapi.staticfiles import StaticFiles
 
@@ -27,6 +28,7 @@ app.include_router(projects.router)
 app.include_router(task_router.router)
 app.include_router(comment_router.router)
 app.include_router(attachment_router.router)
+app.include_router(client_bulk_router.router)
 
 @app.get("/")
 async def health():
