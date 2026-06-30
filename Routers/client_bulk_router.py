@@ -19,7 +19,7 @@ async def bulk_import_clients(
         result = await client_bulk_repository.import_csv(cur, raw_bytes, current_user["user_id"])
         return BulkImport_schemas.BulkImportConfirmResponse(
             success=True,
-            message=f"Import completed. {result['imported_count']} imported, {result['skipped_count']} skipped.",
+            message=f"Import completed. {result['import_count']} imported, {result['skipped_count']} skipped.",
             **result,
         )
     except ValueError as e:

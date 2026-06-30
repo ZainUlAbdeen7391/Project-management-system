@@ -1,91 +1,87 @@
 import os
-import hmac
 import hashlib
 import secrets
 import base64
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.ciphers.aead import AESSIV
 import bcrypt
 from dotenv import load_dotenv
 
 load_dotenv()
-
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_SECRET                 = os.getenv("JWT_SECRET")
+JWT_ALGORITHM              = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-REFRESH_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
-RESET_EXPIRE_HOURS = int(os.getenv("RESET_TOKEN_EXPIRE_HOURS", "1"))
+REFRESH_EXPIRE_DAYS        = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+RESET_EXPIRE_HOURS         = int(os.getenv("RESET_TOKEN_EXPIRE_HOURS", "1"))
 
-def _derive_key(env_var_name: str) -> bytes:
+
+def _derive_siv_key(env_var_name: str) -> bytes:
     raw = os.getenv(env_var_name, "")
     if not raw:
         raise RuntimeError(f"{env_var_name} is not set in environment")
-    return hashlib.sha256(raw.encode("utf-8")).digest() 
+    return hashlib.sha512(raw.encode("utf-8")).digest()   # → 64 bytes
 
-ENC_KEY = _derive_key("ENCRYPTION_KEY")
-HMAC_KEY = _derive_key("HMAC_KEY")
+ENC_KEY = _derive_siv_key("ENCRYPTION_KEY")
 
+def encrypt_field(plaintext: str) -> bytes:
+    siv = AESSIV(ENC_KEY)
+    return siv.encrypt(plaintext.lower().encode("utf-8"), [])
+
+def decrypt_field(ciphertext: bytes) -> str:
+    siv = AESSIV(ENC_KEY)
+    return siv.decrypt(bytes(ciphertext), []).decode("utf-8")
+
+def encrypt_for_search(plaintext: str) -> bytes:
+    return encrypt_field(plaintext)
+
+#Password hashin
 def hash_password(plain: str) -> str:
     prehash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
-    password_bytes = prehash.encode("utf-8")
-    salt = bcrypt.gensalt(rounds=12)
-    hashed = bcrypt.hashpw(password_bytes, salt)
+    salt    = bcrypt.gensalt(rounds=12)
+    hashed  = bcrypt.hashpw(prehash.encode("utf-8"), salt)
     return hashed.decode("utf-8")
 
 def verify_password(plain: str, hashed: str) -> bool:
     prehash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
     return bcrypt.checkpw(prehash.encode("utf-8"), hashed.encode("utf-8"))
 
-def _get_iv(plaintext: str) -> bytes:
-    hm = hmac.new(HMAC_KEY, plaintext.lower().encode(), hashlib.sha256).digest()
-    return hm[:12]
-
-def generate_reset_token() -> tuple[str, str]:
-    raw = secrets.token_urlsafe(32)
-    token_hash = hashlib.sha256(raw.encode()).hexdigest()
-    return raw, token_hash
-
-def hash_reset_token(raw: str) -> str:
-    return hashlib.sha256(raw.encode()).hexdigest()
-
-def create_access_token(data: dict,expires_delta: timedelta | None = None) -> str:
+#JWT
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire    = datetime.now(timezone.utc) + (
+        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode,JWT_SECRET,algorithm=JWT_ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
 
 def decode_access_token(token: str) -> dict | None:
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except JWTError:
         return None
-    
 
-def generate_refresh_token() -> tuple[str, str]:
-    raw = secrets.token_urlsafe(32)
+
+#Reset token
+
+def generate_reset_token() -> tuple[str, str]:
+    raw        = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw.encode()).hexdigest()
     return raw, token_hash
 
-def hash_refresh_token(raw: str) -> str:
+
+def hash_reset_token(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def encrypt_field(plaintext: str) -> bytes:
-    aesgcm = AESGCM(ENC_KEY)
-    iv = _get_iv(plaintext)
-    ct = aesgcm.encrypt(iv, plaintext.encode(), None)
-    return base64.b64encode(iv + ct)
+#Refresh token
 
-def decrypt_field(ciphertext: bytes) -> str:
-    data = base64.b64decode(ciphertext)
-    iv, ct = data[:12], data[12:]
-    aesgcm = AESGCM(ENC_KEY)
-    return aesgcm.decrypt(iv, ct, None).decode()
+def generate_refresh_token() -> tuple[str, str]:
+    raw        = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw.encode()).hexdigest()
+    return raw, token_hash
 
-def compute_hmac(plaintext: str) -> str:
-    return hmac.new(HMAC_KEY, plaintext.lower().encode(), hashlib.sha256).hexdigest()
 
-    
-
+def hash_refresh_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()

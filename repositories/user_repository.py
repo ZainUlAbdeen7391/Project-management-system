@@ -3,26 +3,28 @@ import schemas.User_schemas as User_schemas
 import utilities.security as security
 from utilities.uuid_utils import generate_uuid7
 
-async def get_user_by_email_hmac(cur, email: str):
-    hmac_val = security.compute_hmac(email)
+async def get_user_by_email(cur, email: str):
+    enc_email = security.encrypt_for_search(email)
     await cur.execute(
-        "SELECT * FROM tbl_users WHERE email_hmac = %s AND deleted_on IS NULL",
-        (hmac_val,),
+        "SELECT * FROM tbl_users WHERE email = %s AND deleted_on IS NULL",
+        (enc_email,),
     )
     return await cur.fetchone()
 
-async def get_user_by_username_hmac(cur, username: str):
-    hmac_val = security.compute_hmac(username)
+
+async def get_user_by_username(cur, username: str):
+    enc_username = security.encrypt_for_search(username)
     await cur.execute(
         """
         SELECT * FROM tbl_users
-        WHERE username_hmac = %s
+        WHERE username = %s
           AND deleted_on IS NULL
         LIMIT 1
         """,
-        (hmac_val,),
+        (enc_username,),
     )
     return await cur.fetchone()
+
 
 async def get_user_by_id(cur, user_id: str):
     await cur.execute(
@@ -38,9 +40,10 @@ async def get_user_by_id(cur, user_id: str):
 
 
 async def get_phone_by_user_id(cur, user_id: str):
+    """Returns the primary active phone row for a user."""
     await cur.execute(
         """
-        SELECT id, user_id, phone_number, phone_number_hmac, phone_type, is_primary, status
+        SELECT id, user_id, phone_number, phone_type, is_primary, status
         FROM tbl_phones
         WHERE user_id = %s
           AND is_primary = 1
@@ -52,52 +55,47 @@ async def get_phone_by_user_id(cur, user_id: str):
     return await cur.fetchone()
 
 
+#create User
+
 async def create_user(cur, payload: User_schemas.SignupRequest) -> str:
-    existing_email    = await get_user_by_email_hmac(cur, payload.email)
-    existing_username = await get_user_by_username_hmac(cur, payload.username)
+    #Duplicate checks
+    existing_email    = await get_user_by_email(cur, payload.email)
+    existing_username = await get_user_by_username(cur, payload.username)
 
     if existing_email:
         raise ValueError("Email already exists")
     if existing_username:
         raise ValueError("Username already exists")
 
-    phone_hmac = security.compute_hmac(payload.phone_number)
+#Phone duplicate check
+    enc_phone_check = security.encrypt_for_search(payload.phone_number)
     await cur.execute(
         """
         SELECT id FROM tbl_phones
-        WHERE phone_number_hmac = %s
+        WHERE phone_number = %s
           AND deleted_on IS NULL
         LIMIT 1
         """,
-        (phone_hmac,),
+        (enc_phone_check,),
     )
     if await cur.fetchone():
         raise ValueError("Phone number already exists")
 
-    user_id = generate_uuid7()
-
-    enc_email     = security.encrypt_field(payload.email)
-    enc_username  = security.encrypt_field(payload.username)
-    email_hmac    = security.compute_hmac(payload.email)
-    username_hmac = security.compute_hmac(payload.username)
+#Encrypt fields for storage
+    user_id      = generate_uuid7()
+    enc_email    = security.encrypt_field(payload.email)
+    enc_username = security.encrypt_field(payload.username)
 
     await cur.execute(
         """
         INSERT INTO tbl_users
-            (user_id, full_name, username, username_hmac, email, email_hmac, status)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+            (user_id, full_name, username, email, status)
+        VALUES (%s, %s, %s, %s, %s)
         """,
-        (
-            user_id,
-            payload.full_name,
-            enc_username,
-            username_hmac,
-            enc_email,
-            email_hmac,
-            "Active",
-        ),
+        (user_id, payload.full_name, enc_username, enc_email, "Active"),
     )
 
+    #Password
     password_id = generate_uuid7()
     hashed_pw   = security.hash_password(payload.password)
     await cur.execute(
@@ -107,19 +105,21 @@ async def create_user(cur, payload: User_schemas.SignupRequest) -> str:
         """,
         (password_id, user_id, hashed_pw),
     )
+
+#phone
     phone_id  = generate_uuid7()
     enc_phone = security.encrypt_field(payload.phone_number)
     await cur.execute(
         """
         INSERT INTO tbl_phones
-            (id, user_id, phone_number, phone_number_hmac,
-             phone_type, is_primary, status,
+            (id, user_id, phone_number, phone_type, is_primary, status,
              created_by, updated_by)
-        VALUES (%s, %s, %s, %s, 'Personal', 1, 1, %s, %s)
+        VALUES (%s, %s, %s, 'Personal', 1, 1, %s, %s)
         """,
-        (phone_id, user_id, enc_phone, phone_hmac, user_id, user_id),
+        (phone_id, user_id, enc_phone, user_id, user_id),
     )
 
+    #Role assignment
     role_id = payload.role_id if payload.role_id else 5
     await cur.execute(
         """
@@ -141,9 +141,10 @@ async def create_user(cur, payload: User_schemas.SignupRequest) -> str:
             (ur_id, role_id, user_id),
         )
     return user_id
+#Authenticate
 
 async def authenticate_user(cur, email: str, password: str):
-    user = await get_user_by_email_hmac(cur, email)
+    user = await get_user_by_email(cur, email)
     if not user:
         return None
     if user["status"] != "Active":
@@ -167,11 +168,17 @@ async def authenticate_user(cur, email: str, password: str):
         return None
     return user
 
+
+#last login
+
 async def update_last_login(cur, user_id: str):
     await cur.execute(
         "UPDATE tbl_users SET last_login_at = UTC_TIMESTAMP() WHERE user_id = %s",
         (user_id,),
     )
+
+
+#Password reset
 
 async def create_password_reset(cur, user_id: str, token_hash: str, expires_at: datetime):
     rp_id = generate_uuid7()
@@ -182,6 +189,7 @@ async def create_password_reset(cur, user_id: str, token_hash: str, expires_at: 
         """,
         (rp_id, user_id, token_hash, expires_at),
     )
+
 
 async def validate_reset_token(cur, raw_token: str):
     token_hash = security.hash_reset_token(raw_token)
@@ -208,6 +216,9 @@ async def reset_user_password(cur, rp_id: str, user_id: str, new_password: str):
         (rp_id,),
     )
 
+
+#refresh tokens
+
 async def create_refresh_token(cur, user_id: str) -> str:
     await cur.execute(
         """
@@ -219,8 +230,7 @@ async def create_refresh_token(cur, user_id: str) -> str:
     )
     raw_token, token_hash = security.generate_refresh_token()
     expire = datetime.now(timezone.utc) + timedelta(days=security.REFRESH_EXPIRE_DAYS)
-
-    rt_id = generate_uuid7()
+    rt_id  = generate_uuid7()
     await cur.execute(
         """
         INSERT INTO tbl_refresh_tokens (rt_id, user_id, token_hash, expires_at, created_at)
@@ -229,6 +239,7 @@ async def create_refresh_token(cur, user_id: str) -> str:
         (rt_id, user_id, token_hash, expire),
     )
     return raw_token
+
 
 async def validate_refresh_token(cur, raw_token: str):
     token_hash = security.hash_refresh_token(raw_token)
@@ -251,6 +262,8 @@ async def revoke_refresh_token(cur, token_id: str):
         (token_id,),
     )
 
+
+#Roles & Permissions
 async def get_user_roles(cur, user_id: str):
     await cur.execute(
         """
@@ -270,6 +283,7 @@ async def get_user_roles(cur, user_id: str):
         (user_id,),
     )
     return await cur.fetchall()
+
 
 async def get_user_permissions(cur, user_id: str):
     await cur.execute(
@@ -306,4 +320,3 @@ async def get_user_permissions(cur, user_id: str):
         (user_id,),
     )
     return await cur.fetchall()
-

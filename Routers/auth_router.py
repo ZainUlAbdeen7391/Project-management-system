@@ -33,20 +33,18 @@ async def signup(payload: User_schemas.SignupRequest, cur=Depends(get_db)):
         status=user["status"],
     )
 
-
 #Login
-
 @router.post("/login", response_model=User_schemas.TokenResponse)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), cur=Depends(get_db)):
     try:
         email = form_data.username
-        user = await user_repository.authenticate_user(cur, email, form_data.password)
+        user  = await user_repository.authenticate_user(cur, email, form_data.password)
         if not user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
-        roles       = await user_repository.get_user_roles(cur, user["user_id"])
-        permissions = await user_repository.get_user_permissions(cur, user["user_id"])
-        access_token = security.create_access_token(data={"sub": user["user_id"]})
+        roles         = await user_repository.get_user_roles(cur, user["user_id"])
+        permissions   = await user_repository.get_user_permissions(cur, user["user_id"])
+        access_token  = security.create_access_token(data={"sub": user["user_id"]})
         refresh_token = await user_repository.create_refresh_token(cur, user["user_id"])
 
         return {
@@ -67,12 +65,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), cur=Depends(ge
     except Exception:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
 
+#Forgot Password
 
-#forgot Password
 @router.post("/forgot-password")
 async def forgot_password(payload: User_schemas.ForgotPasswordRequest, cur=Depends(get_db)):
     try:
-        user = await user_repository.get_user_by_email_hmac(cur, payload.email)
+        user = await user_repository.get_user_by_email(cur, payload.email)
         if not user:
             return {"message": "A link has been sent to your email, please check and copy the token"}
 
@@ -114,7 +112,8 @@ async def forgot_password(payload: User_schemas.ForgotPasswordRequest, cur=Depen
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-#reset Password
+#Reset Password 
+
 @router.post("/reset-password")
 async def reset_password(payload: User_schemas.ResetPasswordRequest, cur=Depends(get_db)):
     entry = await user_repository.validate_reset_token(cur, payload.token)
@@ -127,3 +126,6 @@ async def reset_password(payload: User_schemas.ResetPasswordRequest, cur=Depends
         "message": "Password has been reset successfully. Please login.",
         "data": None,
     }
+    
+    
+    
